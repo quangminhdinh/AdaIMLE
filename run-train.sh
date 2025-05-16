@@ -47,7 +47,7 @@ export load_point=“latest”
 #!/bin/bash
 set -ex
 echo “Running at $(date)”
-exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F’,' ‘{print NF}’) --standalone train.py --hps fewshot \
+exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print NF}') --standalone train.py --hps fewshot \
     --save_dir ${save_dir} \
     --data_root /scratch/qmd/datasets/flowers_i/ \
     --dataset flowers102-i \
