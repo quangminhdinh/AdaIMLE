@@ -57,7 +57,7 @@ exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print 
     --lr 0.0002 \
     --iters_per_ckpt 100000 --iters_per_images 5000 --iters_per_save 1000 \
     --search_type 'lpips' \
-    --n_batch 8 \
+    --n_batch 4 \
     --num_epochs 500 \
     --fid_freq 10 \
     --imle_batch 32 \

@@ -298,9 +298,11 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
                                         f'{H.save_dir}/latest.png', logprint, experiment)
             imle.train()
 
-        if (epoch % 5 == 0 and experiment is not None and is_main_process()):
+        if (epoch % 5 == 0  and is_main_process()):
             if H.use_wandb:
                 wandb.log(metrics, step=iterate)
+
+        if (epoch % 5 == 0 and experiment is not None and is_main_process()):
             experiment.log_metrics(metrics, epoch=epoch, step=iterate)
         
         if epoch % H.epoch_per_save == 0 and is_main_process() and isValid(mean_loss):
