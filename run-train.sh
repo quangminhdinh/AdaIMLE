@@ -19,7 +19,7 @@
 pwd
 hostname
 date
-echo “Starting job...”
+echo "Starting job..."
 
 cd $projects/AdaIMLE
 module purge
@@ -31,8 +31,8 @@ export PYTHONUNBUFFERED=1
 export TORCH_NCCL_ASYNC_HANDLING=1
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.
 
-echo “r$SLURM_NODEID master: $MASTER_ADDR”
-echo “r$SLURM_NODEID Launching python script”
+echo "r$SLURM_NODEID master: $MASTER_ADDR"
+echo "r$SLURM_NODEID Launching python script"
 
 source ~/py311/bin/activate
 # scp /project/6054857/cva19/clean-fid/weights/inception-2015-12-05.pt /tmp/
@@ -42,11 +42,11 @@ source ~/py311/bin/activate
 # script you’ll only get updated every several lines printed.
 #pip download -i https://test.pypi.org/simple/ dciknn-cuda==0.1.15
 export EXP_NAME=test
-export save_dir=“/scratch/qmd/results/new_imle/flowers_i/${EXP_NAME}”
-export load_point=“latest”
+export save_dir="/scratch/qmd/results/new_imle/flowers_i/${EXP_NAME}"
+export load_point="latest"
 #!/bin/bash
 set -ex
-echo “Running at $(date)”
+echo "Running at $(date)"
 exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print NF}') --standalone train.py --hps fewshot \
     --save_dir ${save_dir} \
     --data_root /scratch/qmd/datasets/flowers_i/ \

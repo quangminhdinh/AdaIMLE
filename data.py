@@ -8,6 +8,7 @@ import torchvision.transforms as transforms
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 from datasets import load_dataset
+from PIL import Image
 
 from helpers.utils import get_world_size, crop_resize
 from models import parse_layer_string
@@ -34,7 +35,7 @@ def set_up_data(H):
         shift = -116.2373
         scale = 1. / 69.37404
     elif H.dataset == 'flowers102-i':
-        trX, vaX, teX = flowers102_img(H.image_size)
+        trX, vaX, teX = flowers102_img(H.image_size, H.data_root)
         H.image_channels = 3
         shift = -112.8666757481         # 71.93867001005759         93.6042881894389
         scale = 1. / 69.84780273        # 73.66214571500137         65.3031711042093
@@ -211,12 +212,20 @@ def stl10(data_root):
     return dataset, None, None
 
 
-def flowers102_img(img_size):
+def flowers102_img(img_size, data_root):
     ds = load_dataset("efekankavalci/flowers102-captions", split="train")
     trX = []
     # for i in tqdm(range(len(ds)), desc="Preprocessing flowers102-i:"):
+    p = f'{data_root}/img'
+    save_f = not os.path.exists(p)
+    if save_f:
+        os.makedirs(data_root, exist_ok=True)
+        os.makedirs(p, exist_ok=True)
     for i in tqdm(range(1000), desc="Preprocessing flowers102-i:"):
         trX.append(crop_resize(np.asarray(ds[i]["image"]), img_size))
+        if save_f:
+            out = Image.fromarray(trX[-1])
+            out.save(os.path.join(p, f"{i}.jpg"))
     trX = np.stack(trX) # b, h, w, c
     test_num = trX.shape[0] // 10
     tr_va_split_indices = np.random.permutation(trX.shape[0])
