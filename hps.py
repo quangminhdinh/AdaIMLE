@@ -56,6 +56,8 @@ fewshot.dec_blocks = '1x4,4m1,4x4,8m4,8x4,16m8,16x3,32m16,32x2,64m32,64x2,128m64
 fewshot.warmup_iters = 10
 fewshot.dataset = 'fewshot'
 fewshot.n_batch = 4
+fewshot.use_text = False
+fewshot.use_clip_loss = False
 fewshot.ema_rate = 0.9999
 fewshot.l2_search_downsample = 0.125
 fewshot.multi_res_scales = '8,12,16,24,32,48,64,96,128,150,200,230'
@@ -129,6 +131,8 @@ def add_imle_arguments(parser):
     parser.add_argument('--num_rows_visualize', type=int, default=9)  # number of rows to visualize, e.g. 3 means 3x8=24 images
 
     parser.add_argument('--residual_ratio', type=float, default=1.0)
+    parser.add_argument('--use_text', default=False, type=lambda x: bool(x))
+    parser.add_argument('--use_clip_loss', default=False, type=lambda x: bool(x))
 
     parser.add_argument('--accumulation_steps', type=int, default=1)  # accumulation steps
     parser.add_argument('--num_comp_indices', type=int, default=2)  # dci number of components

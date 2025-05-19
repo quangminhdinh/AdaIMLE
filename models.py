@@ -135,12 +135,16 @@ class Decoder(nn.Module):
         self.resnet = get_1x1(H.width, H.image_channels)
         self.gain = nn.Parameter(torch.ones(1, H.image_channels, 1, 1))
         self.bias = nn.Parameter(torch.zeros(1, H.image_channels, 1, 1))
+        self.txt_up = nn.Linear(512, H.latent_dim)
 
-    def forward(self, latent_code, input_is_w=False):
+    def forward(self, latent_code, txt_embed, input_is_w=False):
+        assert latent_code.shape[0] == txt_embed.shape[0]
         if not input_is_w:
             w = self.mapping_network(latent_code)
         else:
             w = latent_code
+        
+        w = w + self.txt_up(txt_embed)
         
         x = self.constant.repeat(latent_code.shape[0], 1, 1, 1)
 
@@ -156,6 +160,6 @@ class IMLE(nn.Module):
         super().__init__()
         self.decoder = Decoder(H)
 
-    def forward(self, latents, input_is_w=False):
-        return self.decoder.forward(latents, input_is_w)
+    def forward(self, latents, txt_embed, input_is_w=False):
+        return self.decoder.forward(latents, txt_embed, input_is_w)
 

@@ -48,7 +48,7 @@ class IPR():
         self.num_samples = num_samples
         if model is None:
             print('loading vgg16 for improved precision and recall...', end='', flush=True)
-            self.vgg16 = models.vgg16(pretrained=True).cuda().eval()
+            self.vgg16 = models.vgg16(weights=models.VGG16_Weights.DEFAULT).cuda().eval()
             print('done')
         else:
             self.vgg16 = model

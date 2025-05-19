@@ -41,24 +41,24 @@ source ~/py311/bin/activate
 # buffering when stdout is a file, or else when watching your output
 # script you’ll only get updated every several lines printed.
 #pip download -i https://test.pypi.org/simple/ dciknn-cuda==0.1.15
-export EXP_NAME=text_base
-export save_dir="/scratch/qmd/results/new_imle/flowers_t/${EXP_NAME}"
+export EXP_NAME=test
+export save_dir="/scratch/qmd/results/new_imle/flowers_i/${EXP_NAME}"
 export load_point="latest"
 #!/bin/bash
 set -ex
 echo "Running at $(date)"
 exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print NF}') --standalone train.py --hps fewshot \
     --save_dir ${save_dir} \
-    --data_root /scratch/qmd/datasets/flowers_t \
-    --dataset flowers102-t \
-    --wandb_name text_base \
-    --force_factor 0.1 \
-    --imle_force_resample 10  \
+    --data_root /scratch/qmd/datasets/flowers_i \
+    --dataset flowers102-i \
+    --wandb_name new_imle \
+    --force_factor 5 \
+    --imle_force_resample 5  \
     --lr 0.0002 \
     --iters_per_ckpt 100000 --iters_per_images 5000 --iters_per_save 1000 \
     --search_type 'lpips' \
     --n_batch 4 \
-    --num_epochs 400 \
+    --num_epochs 500 \
     --fid_freq 10 \
     --imle_batch 32 \
     --compile True \

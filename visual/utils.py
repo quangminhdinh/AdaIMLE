@@ -5,6 +5,8 @@ import imageio
 import os
 import shutil
 from helpers.utils import is_main_process, get_rank, get_world_size
+import json
+
 
 def delete_content_of_dir(folder):
     for filename in os.listdir(folder):
@@ -39,6 +41,23 @@ def generate_for_NN(sampler, orig, initial, shape, ema_imle, fname, logprint):
     imageio.imwrite(fname, im)
 
 
+def generate_for_NN_wtext(sampler, orig, initial, text_clip, text, shape, ema_imle, fname, logprint):
+    mb = shape[0] # batch
+    initial = initial[:mb].to(ema_imle.device)
+    text_clip = text_clip[:mb].to(ema_imle.device)
+    text = text[:mb]
+    nns = sampler.sample(initial, text_clip, ema_imle, None)
+    batches = [orig[:mb], nns]
+    n_rows = len(batches)
+    im = np.concatenate(batches, axis=0).reshape((n_rows, mb, *shape[1:])).transpose([0, 2, 1, 3, 4]).reshape(
+        [n_rows * shape[1], mb * shape[2], 3])
+
+    logprint(f'printing samples to {fname}')
+    imageio.imwrite(f"{fname}.png", im)
+    with open(f'{fname}.json', 'w') as fp:
+        json.dump(text, fp, indent=4)
+
+
 def generate_visualization(H, sampler, orig, initial, last_latents, latent_for_visualization, shape, imle, fname, logprint, experiment=None):
     mb = shape[0]
     initial = initial[:mb]
@@ -56,6 +75,28 @@ def generate_visualization(H, sampler, orig, initial, last_latents, latent_for_v
     imageio.imwrite(fname, im)
     if(experiment):
         experiment.log_image(fname, overwrite=True)
+
+
+def generate_visualization_wtext(H, sampler, orig, all_text, initial, last_latents, latent_for_visualization, shape, imle, fname, logprint, experiment=None):
+    mb = shape[0]
+    initial = initial[:mb]
+    last_latents = last_latents[:mb]
+    text = all_text[:mb]
+    batches = [orig[:mb], sampler.sample(initial, text, imle, None), sampler.sample(last_latents, text, imle, None)]
+
+    for t in range(H.num_rows_visualize):
+        text_viz = all_text[torch.randint(all_text.shape[0], (H.num_images_visualize,))]
+        batches.append(sampler.sample(latent_for_visualization[t], text_viz, imle, None))
+
+    n_rows = len(batches)
+    im = np.concatenate(batches, axis=0).reshape((n_rows, mb, *shape[1:])).transpose([0, 2, 1, 3, 4]).reshape(
+        [n_rows * shape[1], mb * shape[2], 3])
+
+    logprint(f'printing samples to {fname}')
+    imageio.imwrite(fname, im)
+    if(experiment):
+        experiment.log_image(fname, overwrite=True)
+
 
 def generate_and_save(H, imle, sampler, n_samp, subdir='fid'):
     # Get the current process rank and world size.
@@ -84,6 +125,41 @@ def generate_and_save(H, imle, sampler, n_samp, subdir='fid'):
             # latent_batch.normal_()  # Reinitialize latent_batch from normal distribution
             # Generate samples using the provided sampler
             samp = sampler.sample(latent_batch, imle, None)
+            # Save each sample with its corresponding global index
+            for j in range(current_batch_size):
+                global_index = indices[i + j]
+                imageio.imwrite(f'{H.save_dir}/{subdir}/{global_index}.png', samp[j])
+    
+    imle.train()
+
+def generate_and_save_wtext(H, imle, sampler, all_text, n_samp, subdir='fid'):
+    # Get the current process rank and world size.
+    
+    rank = get_rank()
+    world_size = get_world_size()
+
+    if is_main_process():
+        delete_content_of_dir(f'{H.save_dir}/{subdir}')
+    
+    torch.distributed.barrier()
+
+    indices = list(range(rank, n_samp, world_size))
+    n_local = len(indices)
+
+    imle.eval()
+
+    with torch.no_grad():
+        # Process images in batches
+        for i in range(0, n_local, H.imle_batch):
+            current_batch_size = min(H.imle_batch, n_local - i)
+            # Generate random latent vectors for the current batch
+            latent_batch = torch.randn([current_batch_size, H.latent_dim], dtype=torch.float32, 
+                                       device=imle.device, 
+                                       generator=sampler.generator_seed)
+            text_viz = all_text[torch.randint(all_text.shape[0], (current_batch_size,))]
+            # latent_batch.normal_()  # Reinitialize latent_batch from normal distribution
+            # Generate samples using the provided sampler
+            samp = sampler.sample(latent_batch, text_viz, imle, None)
             # Save each sample with its corresponding global index
             for j in range(current_batch_size):
                 global_index = indices[i + j]

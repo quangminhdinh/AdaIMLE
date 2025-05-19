@@ -9,14 +9,22 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 from datasets import load_dataset
 from PIL import Image
+import clip
+import json
 
 from helpers.utils import get_world_size, crop_resize
 from models import parse_layer_string
 from torchvision.datasets import CIFAR10, STL10
+from dataloaders import TextCLIPCondDataset
 
 
 def set_up_data(H):
-    
+    if H.dataset in ['flowers102-t']:
+        return set_up_data_wtext(H)
+    return set_up_data_img(H)
+
+
+def set_up_data_img(H):    
     blocks = parse_layer_string(H.dec_blocks)
     H.block_res = [s[0] for s in blocks]
     H.res = sorted(set([s[0] for s in blocks if s[0] <= H.max_hierarchy]))
@@ -144,6 +152,57 @@ def set_up_data(H):
     return H, train_data, valid_data, preprocess_func
 
 
+def set_up_data_wtext(H):
+    H.use_text = True
+
+    blocks = parse_layer_string(H.dec_blocks)
+    H.block_res = [s[0] for s in blocks]
+    H.res = sorted(set([s[0] for s in blocks if s[0] <= H.max_hierarchy]))
+
+    shift_loss = -127.5
+    scale_loss = 1. / 127.5
+    if H.dataset == 'flowers102-t':
+        train, valid = flowers102_text(H.image_size, H.data_root, H.use_clip_loss)
+        H.image_channels = 3
+        shift = -112.8666757481         # 71.93867001005759         93.6042881894389
+        scale = 1. / 69.84780273        # 73.66214571500137         65.3031711042093
+    else:
+        raise ValueError('unknown dataset: ', H.dataset)
+
+    do_low_bit = H.dataset in ['ffhq_256']
+
+    device = torch.device("cuda", torch.cuda.current_device())
+
+    shift = torch.tensor([shift], device=device).view(1, 1, 1, 1)
+    scale = torch.tensor([scale], device=device).view(1, 1, 1, 1)
+    shift_loss = torch.tensor([shift_loss], device=device).view(1, 1, 1, 1)
+    scale_loss = torch.tensor([scale_loss], device=device).view(1, 1, 1, 1)
+
+    train_data = TextCLIPCondDataset(train, H)
+    valid_data = TextCLIPCondDataset(valid, H)
+    untranspose = False
+            
+    H.global_batch_size = H.n_batch * get_world_size()
+    H.total_iters = H.num_epochs * np.ceil(len(train_data) // H.global_batch_size)
+
+    def preprocess_func(x):
+        nonlocal shift
+        nonlocal scale
+        nonlocal shift_loss
+        nonlocal scale_loss
+        nonlocal do_low_bit
+        nonlocal untranspose
+        'takes in a data example and returns the preprocessed input'
+        'as well as the input processed for the loss'
+        if untranspose:
+            x[0] = x[0].permute(0, 2, 3, 1)
+        inp = x[0].to(device=device, non_blocking=True).float()
+        inp.mul_(1./127.5).add_(-1)
+        return inp, inp
+
+    return H, train_data, valid_data, preprocess_func
+
+
 def mkdir_p(path):
     os.makedirs(path, exist_ok=True)
 
@@ -232,6 +291,72 @@ def flowers102_img(img_size, data_root):
     train = trX[tr_va_split_indices[:-test_num]]
     valid = trX[tr_va_split_indices[-test_num:]]
     return train, valid, valid
+
+
+def flowers102_text(img_size, data_root, use_img_emb=False):
+    ds = load_dataset("efekankavalci/flowers102-captions", split="train")
+    trX = []
+    raw_txt = []
+    txts = []
+    imgs = [] if use_img_emb else None
+
+    device = torch.device("cuda", torch.cuda.current_device())
+    model, preprocess = clip.load('ViT-B/32', device)
+    
+    p = f'{data_root}/img'
+    save_f = not os.path.exists(p)
+    if save_f:
+        os.makedirs(data_root, exist_ok=True)
+        os.makedirs(p, exist_ok=True)
+    
+    with torch.no_grad():
+        for i in tqdm(range(1000), desc="Preprocessing flowers102-t:"):
+            img_path = os.path.join(p, f"{i}.jpg")
+            if save_f:
+                raw_img = crop_resize(np.asarray(ds[i]["image"]), img_size)
+                out = Image.fromarray(raw_img)
+                out.save(img_path)
+            else:
+                raw_img = np.asarray(Image.open(img_path))
+            trX.append(raw_img)
+            
+            if use_img_emb:
+                img = Image.fromarray(raw_img)
+                image_input = preprocess(img).unsqueeze(0).to(device)
+                imgs.append(model.encode_image(image_input).cpu())
+
+            raw_txt.append(ds[i]["text"])
+            text_input = clip.tokenize(raw_txt[-1]).to(device)
+            txts.append(model.encode_text(text_input).cpu())
+    trX = np.stack(trX) # b, h, w, c
+    txts = torch.cat(txts)
+    assert txts.shape[0] == trX.shape[0]
+    assert txts.shape[0] == len(raw_txt)
+
+    np.save(f'{data_root}/raw_imgs.npy', trX, allow_pickle=True)
+    torch.save(txts, f'{data_root}/txts.pt')
+    with open(f'{data_root}/raw_txts.json', 'w') as fp:
+        json.dump(raw_txt, fp, indent=4)
+    
+    test_num = trX.shape[0] // 10
+    tr_va_split_indices = np.random.permutation(trX.shape[0])
+    train = {
+        "raw_img": trX[tr_va_split_indices[:-test_num]], 
+        "raw_text": [raw_txt[i] for i in tr_va_split_indices[:-test_num]],
+        "text": txts[tr_va_split_indices[:-test_num]],
+    }
+    valid = {
+        "raw_img": trX[tr_va_split_indices[-test_num:]], 
+        "raw_text": [raw_txt[i] for i in tr_va_split_indices[-test_num:]],
+        "text": txts[tr_va_split_indices[-test_num:]],
+    }
+    if use_img_emb:
+        imgs = torch.cat(imgs)
+        assert txts.shape[0] == imgs.shape[0]
+        torch.save(imgs, f'{data_root}/imgs.pt')
+        train["img"] = imgs[tr_va_split_indices[:-test_num]]
+        valid["img"] = imgs[tr_va_split_indices[-test_num:]]
+    return train, valid
 
 
 def cifar10(data_root, one_hot=True):
