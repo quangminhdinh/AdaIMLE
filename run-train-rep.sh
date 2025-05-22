@@ -6,7 +6,7 @@
 #SBATCH --tasks-per-node=8
 #SBATCH --gres=gpu:v100l:4 # 32G V100
 #SBATCH --exclude=cdr2482,cdr2486
-#SBATCH --output=/scratch/qmd/results/new_imle/flowers_t/text_base_18_force_2/log_out.log
+#SBATCH --output=/scratch/qmd/datasets/flowers_t/text_base_18_force_2_rep/log_out.log
 ##SBATCH -e slurm.%N.%j.err    # STDERR
 
 # Below sets the email notification, swap to your email to receive notifications
@@ -30,6 +30,9 @@ module load StdEnv/2023 gcc cuda arrow faiss/1.8.0 python/3.11.5
 
 export PYTHONUNBUFFERED=1
 export TORCH_NCCL_ASYNC_HANDLING=1
+# export NCCL_DEBUG=INFO
+# export NCCL_DEBUG_SUBSYS=ALL
+# export NCCL_ASYNC_ERROR_HANDLING=1
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.
 export MASTER_PORT=$((10000 + RANDOM % 50000))
 
@@ -44,7 +47,7 @@ source ~/py311/bin/activate
 # buffering when stdout is a file, or else when watching your output
 # script you’ll only get updated every several lines printed.
 #pip download -i https://test.pypi.org/simple/ dciknn-cuda==0.1.15
-export EXP_NAME=text_base_18_force_2
+export EXP_NAME=text_base_18_force_2_rep
 export save_dir="/scratch/qmd/results/new_imle/flowers_t/${EXP_NAME}"
 export load_point="latest"
 #!/bin/bash
@@ -54,7 +57,7 @@ exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print 
     --save_dir ${save_dir} \
     --data_root /scratch/qmd/datasets/flowers_t \
     --dataset flowers102-t \
-    --wandb_name text_base_18_force_2 \
+    --wandb_name text_base_18_force_2_rep \
     --force_factor 0.02 \
     --imle_force_resample 2  \
     --lr 0.0002 \
@@ -66,6 +69,7 @@ exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print 
     --imle_batch 32 \
     --compile True \
     --use_multi_res True \
+    --rep_text_emb True \
     --multi_res_scales '32,64,128' \
     --dec_blocks '1x2,4m1,4x3,8m4,8x4,16m8,16x9,32m16,32x21,64m32,64x13,128m64,128x7,256m128' 
     # --restore_path ${save_dir}/train/${load_point}-model.th \

@@ -57,6 +57,7 @@ fewshot.warmup_iters = 10
 fewshot.dataset = 'fewshot'
 fewshot.n_batch = 4
 fewshot.use_text = False
+fewshot.rep_text_emb = False
 fewshot.use_clip_loss = False
 fewshot.ema_rate = 0.9999
 fewshot.l2_search_downsample = 0.125
@@ -132,6 +133,7 @@ def add_imle_arguments(parser):
 
     parser.add_argument('--residual_ratio', type=float, default=1.0)
     parser.add_argument('--use_text', default=False, type=lambda x: bool(x))
+    parser.add_argument('--rep_text_emb', default=False, type=lambda x: bool(x))
     parser.add_argument('--use_clip_loss', default=False, type=lambda x: bool(x))
 
     parser.add_argument('--accumulation_steps', type=int, default=1)  # accumulation steps

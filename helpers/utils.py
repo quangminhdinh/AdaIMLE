@@ -161,29 +161,25 @@ def tile_images(images, d1=4, d2=4, border=1):
 
 
 def mpi_size():
-    return 0
-
+    return dist.get_world_size() if dist.is_available() and dist.is_initialized() else 1
 
 def mpi_rank():
-    return 0
+    return dist.get_rank() if dist.is_available() and dist.is_initialized() else 0
 
 
 def num_nodes():
-    nn = mpi_size()
-    if nn % 8 == 0:
-        return nn // 8
-    return nn // 8 + 1
-
-
-def gpus_per_node():
-    size = mpi_size()
-    if size > 1:
-        return max(size // num_nodes(), 1)
+    if "SLURM_JOB_NUM_NODES" in os.environ:
+        return int(os.environ["SLURM_JOB_NUM_NODES"])
+    if dist.is_initialized():
+        return dist.get_world_size() // torch.cuda.device_count()
     return 1
 
+def gpus_per_node():
+    return torch.cuda.device_count()
 
 def local_mpi_rank():
-    return mpi_rank() % gpus_per_node()
+    # Same as LOCAL_RANK in torchrun
+    return int(os.environ.get("LOCAL_RANK", mpi_rank() % gpus_per_node()))
 
 
 def pad_resize(img, size):
