@@ -18,21 +18,24 @@ class TextClipCondSampler(Sampler):
         super().__init__(H, sz, preprocess_fn)
 
         print(f"\n{self.__class__.__name__}'s configurations.")
+        self.pool_size = int(H.force_factor * sz)
+        self.dataset_proj = torch.empty([sz, self.dci_dim], dtype=torch.float32, device=self.device)
+        print(f"Pool size: {self.pool_size}")
         
-    # def init_projection(self, dataset):
+    def init_projection(self, dataset):
 
-    #     for ind, x in enumerate(DataLoader(TensorDataset(dataset), batch_size=self.H.n_batch)):
-    #         batch_slice = slice(ind * self.H.n_batch, ind * self.H.n_batch + x[0].shape[0])
-    #         if(self.H.search_type == 'lpips'):
-    #             self.dataset_proj[batch_slice] = self.get_projected(self.preprocess_fn(x)[1]).cpu()
-    #         elif(self.H.search_type == 'l2'):
-    #             self.dataset_proj[batch_slice] = self.get_l2_feature(self.preprocess_fn(x)[1]).cpu()
-    #         # elif(self.H.search_type == 'vae'):
-    #         #     self.dataset_proj[batch_slice] = self.get_vae_features(self.preprocess_fn(x)[1]).cpu()
-    #         elif(self.H.search_type == 'combined'):
-    #             self.dataset_proj[batch_slice] = self.get_combined_feature(self.preprocess_fn(x)[1]).cpu()
-    #         else:
-    #             exit()
+        for ind, x in enumerate(DataLoader(TensorDataset(dataset), batch_size=self.H.n_batch)):
+            batch_slice = slice(ind * self.H.n_batch, ind * self.H.n_batch + x[0].shape[0])
+            if(self.H.search_type == 'lpips'):
+                self.dataset_proj[batch_slice] = self.get_projected(self.preprocess_fn(x)[1])
+            elif(self.H.search_type == 'l2'):
+                self.dataset_proj[batch_slice] = self.get_l2_feature(self.preprocess_fn(x)[1])
+            # elif(self.H.search_type == 'vae'):
+            #     self.dataset_proj[batch_slice] = self.get_vae_features(self.preprocess_fn(x)[1]).cpu()
+            elif(self.H.search_type == 'combined'):
+                self.dataset_proj[batch_slice] = self.get_combined_feature(self.preprocess_fn(x)[1])
+            else:
+                exit()
 
     def sample(self, latents, text, gen, snoise=None):
         with torch.no_grad():
@@ -45,7 +48,7 @@ class TextClipCondSampler(Sampler):
                 xhat = np.minimum(np.maximum(0.0, xhat), 255.0).astype(np.uint8)
                 return xhat
 
-    def find_min_latent(self, gen, txt_clip, sample_proj):
+    def find_min_latent(self, gen, txt_clip, sample_proj, log=False):
         gen.eval()   
 
         # Generate local pool latents and prepare container for projected features
@@ -57,7 +60,10 @@ class TextClipCondSampler(Sampler):
         local_pool_proj = torch.empty((self.pool_size, self.dci_dim), device=self.device)
 
         # Process local chunk in batches
-        for j in range(self.pool_size // self.H.imle_batch):
+        num_batch = self.pool_size // self.H.imle_batch
+        total_time = 0
+        for j in range(num_batch):
+            start = time.time()
             batch_slice = slice(j * self.H.imle_batch, (j + 1) * self.H.imle_batch)
             cur_latents = local_pool_latents[batch_slice]
             with torch.no_grad():
@@ -72,17 +78,27 @@ class TextClipCondSampler(Sampler):
                     else:
                         proj = self.get_combined_feature(outputs, False)
                     local_pool_proj[batch_slice] = proj
+            total_time += time.time() - start
+        total_time /= num_batch
 
-        self.gpu_index_flat.add(local_pool_proj.cpu().numpy().astype(np.float32))  # add entire pool
+        # self.gpu_index_flat.add(local_pool_proj.cpu().numpy().astype(np.float32))  # add entire pool
 
-        distances, indices = self.gpu_index_flat.search(sample_proj, 1)
-        local_distances = torch.from_numpy(distances).squeeze()
-        local_indices   = torch.from_numpy(indices).squeeze()
-        self.gpu_index_flat.reset()
+        # distances, indices = self.gpu_index_flat.search(sample_proj, 1)
+        # local_distances = torch.from_numpy(distances).squeeze()
+        # local_indices   = torch.from_numpy(indices).squeeze() sz x dci_dim
+        # self.gpu_index_flat.reset()
+        start = time.time()
+        all_dists = torch.sqrt(torch.sum((sample_proj - local_pool_proj) ** 2, dim=-1))
+        ind = torch.argmin(all_dists)
+        knn_time = time.time() - start
+
+        if is_main_process() and log:
+            print(f"Average projection calculation time: {total_time}")
+            print(f"KNN calculation time: {knn_time}")
 
         gen.train()
 
-        return local_distances, local_pool_latents[local_indices]
+        return all_dists[ind], local_pool_latents[ind]
 
     def imle_sample_force(self, dataset, gen, to_update=None):
         """
@@ -121,7 +137,10 @@ class TextClipCondSampler(Sampler):
 
             for samp_idx in tqdm(range(local_start, local_end), desc="IMLE:", disable=(not is_main_process())):
                 distance, latent = self.find_min_latent(
-                    gen, dataset.txt_clip[samp_idx].unsqueeze(0), self.dataset_proj[samp_idx][np.newaxis, ...]
+                    gen, dataset.txt_clip[samp_idx].unsqueeze(0), 
+                    # self.dataset_proj[samp_idx][np.newaxis, ...]
+                    self.dataset_proj[samp_idx].unsqueeze(0),
+                    log=(samp_idx == local_start)
                 )
                 if distance < self.selected_dists_tmp[samp_idx]:
                     local_updated_dists[samp_idx - local_start] = distance
