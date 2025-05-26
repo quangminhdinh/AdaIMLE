@@ -332,6 +332,8 @@ def main():
                 project=H.wandb_project,
                 config=H,
                 mode=H.wandb_mode,
+                id=H.wandb_id,
+                resume="allow" if H.wandb_id else None
             )
         # print(H)
         if False and H.use_comet and H.comet_api_key:

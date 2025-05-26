@@ -133,6 +133,8 @@ class Decoder(nn.Module):
         first_res = self.resolutions[0]
         self.constant = nn.Parameter(torch.randn(1, self.widths[first_res], first_res, first_res))
         self.resnet = get_1x1(H.width, H.image_channels)
+        if self.H.merge_gain:
+            self.m_gain = nn.Parameter(torch.ones(H.latent_dim))
         self.gain = nn.Parameter(torch.ones(1, H.image_channels, 1, 1))
         self.bias = nn.Parameter(torch.zeros(1, H.image_channels, 1, 1))
         self.rep_text_emb = H.rep_text_emb
@@ -140,6 +142,19 @@ class Decoder(nn.Module):
             self.txt_up = nn.ModuleList([nn.Linear(512, H.latent_dim) for _ in range(len(blocks))])
         else:
             self.txt_up = nn.Linear(512, H.latent_dim)
+    
+    def _merge(self, w, txt_embed, idx=None):
+        if idx is not None:
+            y = self.txt_up[idx](txt_embed)
+        else:
+            y = self.txt_up(txt_embed)
+        if self.H.merge_gain:
+            nw = self.m_gain * w
+        else:
+            nw = w
+        if self.H.style_gan_merge:
+            return torch.randn_like(y, device=y.device) * y + nw
+        return y + nw
 
     def forward(self, latent_code, txt_embed, input_is_w=False):
         assert latent_code.shape[0] == txt_embed.shape[0]
@@ -149,13 +164,13 @@ class Decoder(nn.Module):
             w = latent_code
         
         if not self.rep_text_emb:
-            w = w + self.txt_up(txt_embed)
+            w = self._merge(w, txt_embed)
         
         x = self.constant.repeat(latent_code.shape[0], 1, 1, 1)
 
         for idx, block in enumerate(self.dec_blocks):
             if self.rep_text_emb:
-                x = block(x, w + self.txt_up[idx](txt_embed))
+                x = block(x, self._merge(w, txt_embed, idx))
             else:
                 x = block(x, w)
         x = self.resnet(x)
