@@ -8,16 +8,15 @@
 """Script for calculating Frechet Inception Distance (FID)."""
 
 import os
-import time
 import click
 import tqdm
 import pickle
-import numpy as np
-import scipy.linalg
+import numpy as np # type: ignore
+import scipy.linalg # type: ignore
 import torch
 import dnnlib
 from torch_utils import distributed as dist
-from training import dataset
+from dataloaders import dataset
 
 from functools import partial
 from multiprocessing import cpu_count

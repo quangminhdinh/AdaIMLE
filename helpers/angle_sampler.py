@@ -1,5 +1,5 @@
-import numpy as np
-from scipy import interpolate
+import numpy as np # type: ignore
+from scipy import interpolate # type: ignore
 
 class Angle_Generator:
     def __init__(self, dim):

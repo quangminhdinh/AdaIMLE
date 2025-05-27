@@ -1,5 +1,5 @@
 import torch
-import numpy as np
+import numpy as np # type: ignore
 import imageio
 
 def generate_rnd_nn(H, data, sampler, shape, imle, fname, logprint, preprocess_fn):

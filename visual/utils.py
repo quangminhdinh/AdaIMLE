@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
-import numpy as np
+import numpy as np # type: ignore
 import imageio
 import os
 import shutil
@@ -77,15 +77,18 @@ def generate_visualization(H, sampler, orig, initial, last_latents, latent_for_v
         experiment.log_image(fname, overwrite=True)
 
 
-def generate_visualization_wtext(H, sampler, orig, all_text, initial, last_latents, latent_for_visualization, shape, imle, fname, logprint, experiment=None):
+def generate_visualization_wtext(H, sampler, orig, all_text, txt_list, initial, last_latents, latent_for_visualization, shape, imle, fname, logprint, experiment=None):
     mb = shape[0]
     initial = initial[:mb]
     last_latents = last_latents[:mb]
     text = all_text[:mb]
     batches = [orig[:mb], sampler.sample(initial, text, imle, None), sampler.sample(last_latents, text, imle, None)]
+    sampled_txt = []
 
     for t in range(H.num_rows_visualize):
-        text_viz = all_text[torch.randint(all_text.shape[0], (H.num_images_visualize,))]
+        idxs = torch.randint(all_text.shape[0], (H.num_images_visualize,))
+        text_viz = all_text[idxs]
+        sampled_txt += [txt_list[idx] for idx in idxs]
         batches.append(sampler.sample(latent_for_visualization[t], text_viz, imle, None))
 
     n_rows = len(batches)
@@ -93,9 +96,11 @@ def generate_visualization_wtext(H, sampler, orig, all_text, initial, last_laten
         [n_rows * shape[1], mb * shape[2], 3])
 
     logprint(f'printing samples to {fname}')
-    imageio.imwrite(fname, im)
+    imageio.imwrite(f'{fname}.png', im)
     if(experiment):
         experiment.log_image(fname, overwrite=True)
+    with open(f'{fname}.json', 'w') as fp:
+        json.dump(sampled_txt, fp, indent=4)
 
 
 def generate_and_save(H, imle, sampler, n_samp, subdir='fid'):

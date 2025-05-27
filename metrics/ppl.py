@@ -1,10 +1,7 @@
-import argparse
-
 import torch
 from torch.nn import functional as F
-import numpy as np
+import numpy as np # type: ignore
 from tqdm import tqdm
-# from LPNet import LPNet
 
 from models import parse_layer_string
 

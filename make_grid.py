@@ -2,7 +2,7 @@ import os
 import argparse
 import random
 from PIL import Image
-import math
+
 
 def parse_args():
     parser = argparse.ArgumentParser()

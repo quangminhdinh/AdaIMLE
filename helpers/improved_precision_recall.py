@@ -12,7 +12,7 @@ import os
 from functools import partial
 from collections import namedtuple
 from glob import glob
-import numpy as np
+import numpy as np # type: ignore
 from PIL import Image
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 

@@ -1,8 +1,6 @@
-from math import sqrt
-
 import torch
 from torch import nn
-import numpy as np
+import numpy as np # type: ignore
 
 
 class PixelNorm(nn.Module):

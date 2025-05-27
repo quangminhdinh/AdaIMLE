@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np # type: ignore
 import pickle
 import os
 import torch
@@ -14,8 +14,8 @@ import json
 
 from helpers.utils import get_world_size, crop_resize
 from models import parse_layer_string
-from torchvision.datasets import CIFAR10, STL10
-from dataloaders import TextCLIPCondDataset
+from torchvision.datasets import STL10
+from .text_clip_cond_dataset import TextCLIPCondDataset
 
 
 def set_up_data(H):

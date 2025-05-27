@@ -1,17 +1,12 @@
-import argparse
 from datetime import timedelta
 import os
 import json
 import tempfile
-import numpy as np
+import numpy as np # type: ignore
 import torch
 import time
 import subprocess
 import torch.distributed as dist
-import torch.utils.data as data
-
-import torch.distributed as dist
-
 from PIL import Image
 
 
@@ -215,28 +210,4 @@ def crop_resize(img, size):
     im = Image.fromarray(img_t)
     im2 = im.resize((size, size))
     return np.asarray(im2)
-
-
-# def printGPUInfo(prefix=""):
-#     print(prefix, end=" ")
-#     deviceCount = pynvml.nvmlDeviceGetCount()
-#     for i in range(deviceCount):
-#         handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-#         meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
-#         print("GPU %d used: %d MB" % (i, meminfo.used/1048576), end=" ")
-#     print()
-
-
-class ZippedDataset(data.Dataset):
-
-    def __init__(self, *datasets):
-        assert all(len(datasets[0]) == len(dataset) for dataset in datasets)
-        self.datasets = datasets
-
-    def __getitem__(self, index):
-        # print(index, [len(x) for x in self.datasets])
-        return tuple(dataset[index] for dataset in self.datasets), index
-
-    def __len__(self):
-        return len(self.datasets[0])
 

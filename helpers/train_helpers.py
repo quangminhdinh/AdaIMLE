@@ -1,24 +1,21 @@
 from pathlib import Path
 
 import torch
-import numpy as np
-import socket
+import numpy as np # type: ignore
 import argparse
 import os
 import json
 import subprocess
 from hps import Hyperparams, parse_args_and_update_hparams, add_imle_arguments
 from helpers.utils import (logger, maybe_download)
-from data import mkdir_p
+from dataloaders.data import mkdir_p
 from contextlib import contextmanager
 import torch.distributed as dist
-# from apex.optimizers import FusedAdam as AdamW
 from torch.optim import AdamW
 from models import IMLE
-from torch.nn.parallel.distributed import DistributedDataParallel
 from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR, SequentialLR
 import random
-from helpers.utils import is_main_process, get_world_size, get_rank
+from helpers.utils import is_main_process, get_rank
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.nn as nn
 

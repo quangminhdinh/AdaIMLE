@@ -11,12 +11,12 @@ import os
 import click
 import tqdm
 import pickle
-import numpy as np
-import scipy.linalg
+import numpy as np # type: ignore
+import scipy.linalg # type: ignore
 import torch
 import dnnlib
 from torch_utils import distributed as dist
-from training import dataset
+from dataloaders import dataset
 
 #----------------------------------------------------------------------------
 

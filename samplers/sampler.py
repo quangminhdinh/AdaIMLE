@@ -1,20 +1,17 @@
-from curses import update_lines_cols
-from math import comb, ceil
+from math import ceil
 import time
 
-import numpy as np
+import numpy as np # type: ignore
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
-from transformers import AutoImageProcessor, AutoModel
+from transformers import AutoModel
 
-from LPNet import LPNet
+from models.LPNet import LPNet
 from helpers.utils import is_main_process, get_world_size, get_rank
 from models import parse_layer_string
-from helpers.angle_sampler import Angle_Generator
 from torch import autocast
-from diffusers import AutoencoderTiny
-import faiss
+import faiss # type: ignore
 
 class Sampler:
     def __init__(self, H, sz, preprocess_fn):

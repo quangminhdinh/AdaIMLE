@@ -1,14 +1,11 @@
-import argparse
-
 import torch
 from torch.nn import functional as F
-import numpy as np
+import numpy as np # type: ignore
 from tqdm import tqdm
-# from LPNet import LPNet
 from collections import defaultdict
 
 from models import parse_layer_string
-import pandas as pd
+import pandas as pd # type: ignore
 
 
 def normalize(x):

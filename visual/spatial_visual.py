@@ -1,6 +1,5 @@
-from selectors import BaseSelector
 import torch
-import numpy as np
+import numpy as np # type: ignore
 import imageio
 
 def spatial_vissual(H, sampler, shape, imle, fname, logprint, lat1=None, lat2=None, sn1=None, sn2=None):

@@ -1,6 +1,5 @@
 import torch
-import numpy as np
-import imageio
+import numpy as np # type: ignore
 
 def nn_interp(H, data, sampler, shape, ema_imle, fname, logprint, preprocess_fn):
     mb = 10

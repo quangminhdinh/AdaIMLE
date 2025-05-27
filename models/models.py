@@ -2,11 +2,10 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from mapping_network import MappingNetowrk, AdaptiveInstanceNorm, NoiseInjection
+from .mapping_network import MappingNetowrk, AdaptiveInstanceNorm
 from helpers.imle_helpers import get_1x1
 from collections import defaultdict
-import numpy as np
-import itertools
+
 
 def parse_layer_string(s):
     layers = []
@@ -138,22 +137,37 @@ class Decoder(nn.Module):
         self.gain = nn.Parameter(torch.ones(1, H.image_channels, 1, 1))
         self.bias = nn.Parameter(torch.zeros(1, H.image_channels, 1, 1))
         self.rep_text_emb = H.rep_text_emb
-        if H.rep_text_emb:
-            self.txt_up = nn.ModuleList([nn.Linear(512, H.latent_dim) for _ in range(len(blocks))])
+        if H.merge_concat:
+            if H.rep_text_emb:
+                self.txt_down = nn.ModuleList([nn.Linear(512 + H.latent_dim, H.latent_dim) for _ in range(len(blocks))])
+            else:
+                self.txt_down = nn.Linear(512 + H.latent_dim, H.latent_dim)
         else:
-            self.txt_up = nn.Linear(512, H.latent_dim)
+            if H.rep_text_emb:
+                self.txt_up = nn.ModuleList([nn.Linear(512, H.latent_dim) for _ in range(len(blocks))])
+            else:
+                self.txt_up = nn.Linear(512, H.latent_dim)
     
     def _merge(self, w, txt_embed, idx=None):
-        if idx is not None:
-            y = self.txt_up[idx](txt_embed)
+        if not self.H.merge_concat:
+            if idx is not None:
+                y = self.txt_up[idx](txt_embed)
+            else:
+                y = self.txt_up(txt_embed)
         else:
-            y = self.txt_up(txt_embed)
+            y = txt_embed
         if self.H.merge_gain:
             nw = self.m_gain * w
         else:
             nw = w
         if self.H.style_gan_merge:
-            return torch.randn_like(y, device=y.device) * y + nw
+            y = torch.randn_like(y, device=y.device) * y
+        if self.H.merge_concat:
+            out = torch.cat([nw, y], dim=-1)
+            if idx is not None:
+                return self.txt_down[idx](out)
+            else:
+                return self.txt_down(out)
         return y + nw
 
     def forward(self, latent_code, txt_embed, input_is_w=False):

@@ -2,32 +2,25 @@ import os
 import time
 
 # from comet_ml import Experiment, ExistingExperiment
-import imageio
 import torch
 from torch.utils.data.distributed import DistributedSampler
-import torch.nn as nn
 from cleanfid import fid
 from torch.utils.data import DataLoader, TensorDataset
 import torch.nn.functional as F
-from models import IMLE
-import numpy as np
 import wandb
-from data import set_up_data
-from helpers.train_helpers import (load_imle, load_opt, save_model, set_up_hyperparams, update_ema, set_seed)
-from helpers.utils import ZippedDataset, init_distributed_mode, is_main_process, get_world_size, get_rank
-from sampler import Sampler
-from text_clip_cond_sampler import TextClipCondSampler
+from dataloaders.data import set_up_data
+from helpers.train_helpers import (load_imle, load_opt, save_model, set_up_hyperparams, update_ema)
+from helpers.utils import init_distributed_mode, is_main_process, get_world_size, get_rank
+from samplers import Sampler, TextClipCondSamplerV2
 from visual.interpolate import random_interp
 from visual.utils import (generate_and_save, generate_for_NN, generate_for_NN_wtext,
                           generate_visualization, generate_visualization_wtext,
                           get_sample_for_visualization, generate_and_save_wtext)
 from helpers.improved_precision_recall import compute_prec_recall
-from dataloaders import text_clip_cond_collate
+from dataloaders import text_clip_cond_collate, ZippedDataset
 from torch import autocast
 import torch.distributed as dist
-from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.multiprocessing as mp
-import datetime
 import os
 import torch.distributed as dist
 from tqdm import tqdm
@@ -83,7 +76,7 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
     subset_len = H.subset_len if H.subset_len != -1 else len(data_train)
 
     if H.use_text:
-        sampler = TextClipCondSampler(H, subset_len, preprocess_fn)
+        sampler = TextClipCondSamplerV2(H, subset_len, preprocess_fn)
     else:
         sampler = Sampler(H, subset_len, preprocess_fn)
     torch.distributed.barrier()
@@ -197,12 +190,12 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
                     imle.eval()
                     with torch.no_grad():
                         if H.use_text:
-                            generate_visualization_wtext(H, sampler, viz_batch_original, data_train.txt_clip,
+                            generate_visualization_wtext(H, sampler, viz_batch_original, data_train.txt_clip, data_train.txt_list,
                                                 sampler.selected_latents[0: H.num_images_visualize],
                                                 sampler.last_selected_latents[0: H.num_images_visualize],
                                                 latent_for_visualization,
                                                 viz_batch_original.shape, imle,
-                                                f'{H.save_dir}/samples-{iterate}.png', logprint, experiment)
+                                                f'{H.save_dir}/samples-{iterate}', logprint, experiment)
                         else:
                             generate_visualization(H, sampler, viz_batch_original,
                                                 sampler.selected_latents[0: H.num_images_visualize],
@@ -276,12 +269,12 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
             imle.eval()
             with torch.no_grad():
                 if H.use_text:
-                    generate_visualization_wtext(H, sampler, viz_batch_original, data_train.txt_clip,
+                    generate_visualization_wtext(H, sampler, viz_batch_original, data_train.txt_clip, data_train.txt_list,
                                         sampler.selected_latents[0: H.num_images_visualize],
                                         sampler.last_selected_latents[0: H.num_images_visualize],
                                         latent_for_visualization,
                                         viz_batch_original.shape, imle,
-                                        f'{H.save_dir}/latest.png', logprint, experiment)
+                                        f'{H.save_dir}/latest', logprint, experiment)
                 else:
                     generate_visualization(H, sampler, viz_batch_original,
                                         sampler.selected_latents[0: H.num_images_visualize],
