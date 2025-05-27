@@ -72,10 +72,10 @@ exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print 
     --use_multi_res True \
     --style_gan_merge True \
     --multi_res_scales '32,64,128' \
-    --dec_blocks '1x2,4m1,4x3,8m4,8x4,16m8,16x9,32m16,32x21,64m32,64x13,128m64,128x7,256m128' 
-    # --restore_path ${save_dir}/train/${load_point}-model.th \
-    # --restore_ema_path ${save_dir}/train/${load_point}-model-ema.th \
-    # --restore_optimizer_path ${save_dir}/train/${load_point}-opt.th \
-    # --restore_scaler_path ${save_dir}/train/${load_point}-scaler.th \
-    # --restore_scheduler_path ${save_dir}/train/${load_point}-sched.th \
-    # --restore_log_path ${save_dir}/train/${load_point}-log.jsonl
+    --dec_blocks '1x2,4m1,4x3,8m4,8x4,16m8,16x9,32m16,32x21,64m32,64x13,128m64,128x7,256m128' \
+    --restore_path ${save_dir}/train/${load_point}-model.th \
+    --restore_ema_path ${save_dir}/train/${load_point}-model-ema.th \
+    --restore_optimizer_path ${save_dir}/train/${load_point}-opt.th \
+    --restore_scaler_path ${save_dir}/train/${load_point}-scaler.th \
+    --restore_scheduler_path ${save_dir}/train/${load_point}-sched.th \
+    --restore_log_path ${save_dir}/train/${load_point}-log.jsonl
