@@ -40,7 +40,7 @@ def training_step_imle(H, n, targets, latents, text, imle, ema_imle, optimizer, 
     targets_permuted = targets.permute(0, 3, 1, 2)
     with autocast(device_type='cuda'):
         px_z = imle(latents, text)
-        loss = loss_fn(px_z, targets.permute(0, 3, 1, 2))
+        loss = loss_fn(px_z, targets.permute(0, 3, 1, 2), text=(text if H.use_clip_loss else None))
         loss_measure = loss.clone()
         num_resolutions = 1
 
@@ -143,7 +143,7 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
                                            seed=H.seed)
         
         data_loader = DataLoader(comb_dataset, batch_size=H.n_batch, sampler=train_sampler,
-                                    pin_memory=False, num_workers=4, 
+                                    pin_memory=True, num_workers=4, 
                                     persistent_workers=True, 
                                     multiprocessing_context="spawn",
                                     shuffle=False,
@@ -163,7 +163,8 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
         accum_counter = 0
         imle.zero_grad(set_to_none=True)
 
-        for data in tqdm(data_loader, desc=f"Epoch {epoch}/{H.num_epochs}:", disable=(not is_main_process())):
+        # for data in tqdm(data_loader, desc=f"Epoch {epoch}/{H.num_epochs}:", disable=(not is_main_process())):
+        for data in data_loader:
             _, target = preprocess_fn([data["raw_img"]])
             target = target.to(device)
             latents = data["latent"].to(device)

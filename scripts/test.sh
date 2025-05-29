@@ -30,7 +30,5 @@ exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print 
     --use_clip_loss True \
     --merge_concat True \
     --use_multi_res True \
-    --style_gan_merge True \
-    --rep_text_emb True \
     --multi_res_scales '32,64,128' \
     --dec_blocks '1x2,4m1,4x3,8m4,8x4,16m8,16x9,32m16,32x21,64m32,64x13,128m64,128x7,256m128' 

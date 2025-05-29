@@ -163,9 +163,9 @@ def set_up_data_wtext(H):
     scale_loss = 1. / 127.5
     if H.dataset == 'flowers102-t':
         # train, valid = flowers102_text(H.image_size, H.data_root, H.use_clip_loss)
-        train, valid = flowers102_text_load(H.data_root)
-        if int(H.force_factor * train["raw_img"].shape[0]) < H.imle_batch:
-            H.imle_batch = int(H.force_factor * train["raw_img"].shape[0])
+        train, valid = flowers102_text_load(H.data_root, H.use_clip_loss)
+        # if int(H.force_factor * train["raw_img"].shape[0]) < H.imle_batch:
+        #     H.imle_batch = int(H.force_factor * train["raw_img"].shape[0])
         H.image_channels = 3
         shift = -112.8666757481         # 71.93867001005759         93.6042881894389
         scale = 1. / 69.84780273        # 73.66214571500137         65.3031711042093
@@ -362,7 +362,7 @@ def flowers102_text(img_size, data_root, use_img_emb=False):
     return train, valid
 
 
-def flowers102_text_load(data_root):
+def flowers102_text_load(data_root, use_img_emb=False):
     txts = torch.load(f'{data_root}/txts.pt', map_location='cpu', weights_only=True)
     trX = np.load(f'{data_root}/raw_imgs.npy', allow_pickle=True)
     with open(f'{data_root}/raw_txts.json', 'r') as fp:
@@ -379,6 +379,10 @@ def flowers102_text_load(data_root):
         "raw_text": [raw_txt[i] for i in tr_va_split_indices[-test_num:]],
         "text": txts[tr_va_split_indices[-test_num:]],
     }
+    if use_img_emb:
+        imgs = torch.load(f'{data_root}/imgs.pt', map_location='cpu', weights_only=True)
+        train["img"] = imgs[tr_va_split_indices[:-test_num]]
+        valid["img"] = imgs[tr_va_split_indices[-test_num:]]
     return train, valid
 
 
