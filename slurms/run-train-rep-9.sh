@@ -67,7 +67,8 @@ exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print 
     --n_batch 4 \
     --num_epochs 4000 \
     --fid_freq 10 \
-    --imle_batch 32 \
+    --imle_batch 16 \
+    --imle_db_size 512 \
     --compile True \
     --use_multi_res True \
     --rep_text_emb True \

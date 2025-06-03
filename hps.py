@@ -139,6 +139,9 @@ def add_imle_arguments(parser):
     parser.add_argument('--merge_gain', default=False, type=lambda x: bool(x))
     parser.add_argument('--merge_concat', default=False, type=lambda x: bool(x))
     parser.add_argument('--use_clip_loss', default=False, type=lambda x: bool(x))
+    parser.add_argument('--use_clip_loss_multi_res', default=False, type=lambda x: bool(x))
+    parser.add_argument('--use_clip_l2', default=False, type=lambda x: bool(x))
+    parser.add_argument('--l2_clip_coef', type=float, default=0.1)
 
     parser.add_argument('--accumulation_steps', type=int, default=1)  # accumulation steps
     parser.add_argument('--num_comp_indices', type=int, default=2)  # dci number of components

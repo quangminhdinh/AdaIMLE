@@ -30,6 +30,8 @@ class TextClipCondSamplerV2(Sampler):
             self.clip_preprocess.transforms.pop(2)
             self.clip_preprocess.transforms.pop(2)
             print(f"Adding CLIP loss with coefficient {self.H.clip_coef} and temperature {self.H.clip_temp}!")
+        if self.H.use_clip_l2:
+            print(f"Applying L2 loss to img clip features with coefficient {self.H.l2_clip_coef}!")
 
     def cosine_similarity_loss(self, image_embeds, text_embeds):
         # Normalize the embeddings
@@ -47,14 +49,16 @@ class TextClipCondSamplerV2(Sampler):
         loss_t2i = F.cross_entropy(logits.T, labels)
         return (loss_i2t + loss_t2i) / 2
     
-    def calc_loss(self, inp, tar, text=None):
+    def calc_loss(self, inp, tar, text=None, img_clip=None):
         loss = super().calc_loss(inp, tar)
         if self.use_clip and text is not None:
             xhat = (inp + 1.0) * 127.5
             xhat = torch.clamp(xhat, 0.0, 255.0) / 255.0
             inp_xhat = self.clip_preprocess(xhat)
             img_embed = self.clip_encoder.encode_image(inp_xhat)
-            return loss + self.H.clip_coef * self.cosine_similarity_loss(img_embed, text)
+            loss = loss + self.H.clip_coef * self.cosine_similarity_loss(img_embed, text)
+            if self.H.use_clip_l2 and img_clip is not None:
+                loss = loss + self.H.l2_clip_coef * self.l2_loss(img_embed, img_clip).mean()
         return loss
 
     def sample(self, latents, text, gen, snoise=None):

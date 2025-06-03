@@ -36,11 +36,12 @@ def print_seed(device):
     cuda_seed = torch.cuda.initial_seed()
     print(f"Device {device} CPU seed = {cpu_seed}, GPU seed = {cuda_seed} \n")
 
-def training_step_imle(H, n, targets, latents, text, imle, ema_imle, optimizer, loss_fn, scaler):
+def training_step_imle(H, n, targets, latents, text, imle, ema_imle, optimizer, loss_fn, scaler, clip_feat=None):
     targets_permuted = targets.permute(0, 3, 1, 2)
     with autocast(device_type='cuda'):
         px_z = imle(latents, text)
-        loss = loss_fn(px_z, targets.permute(0, 3, 1, 2), text=(text if H.use_clip_loss else None))
+        loss = loss_fn(px_z, targets.permute(0, 3, 1, 2), text=(text if H.use_clip_loss else None),
+                       img_clip=clip_feat)
         loss_measure = loss.clone()
         num_resolutions = 1
 
@@ -49,7 +50,9 @@ def training_step_imle(H, n, targets, latents, text, imle, ema_imle, optimizer, 
             for scale in H['multi_res_scales']:
                 px_z_scale = F.interpolate(px_z, size=(scale,scale), antialias=True, mode='bicubic')
                 targets_scale = F.interpolate(targets_permuted, size=(scale,scale), antialias=True, mode='bicubic')
-                loss_scale = loss_fn(px_z_scale, targets_scale)
+                loss_scale = loss_fn(px_z_scale, targets_scale, text=(text if H.use_clip_loss_multi_res else None)
+                                    # ,img_clip=(clip_feat if H.use_clip_loss_multi_res else None)
+                                     )
                 
                 loss.add_(loss_scale)
                 num_resolutions += 1
@@ -169,9 +172,13 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
             target = target.to(device)
             latents = data["latent"].to(device)
             text = data["text"].to(device)
+            if H.use_clip_loss and H.use_clip_l2:
+                img_feat = data["img"].to(device)
+            else:
+                img_feat = None
 
             loss = training_step_imle(H, target.shape[0], target, latents, text, imle, ema_imle,
-                               optimizer, sampler.calc_loss, scaler)
+                               optimizer, sampler.calc_loss, scaler, clip_feat=img_feat)
             
             epoch_loss_sum += loss.item()
             epoch_iter_count += 1

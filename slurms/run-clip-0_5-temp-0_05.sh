@@ -6,7 +6,7 @@
 #SBATCH --tasks-per-node=8
 #SBATCH --gres=gpu:v100l:2 # 32G V100
 #SBATCH --exclude=cdr2482,cdr2486,cdr2614
-#SBATCH --output=/scratch/qmd/results/new_imle/flowers_t/base_9_concat_gain/log_out.log
+#SBATCH --output=/scratch/qmd/results/new_imle/flowers_t/clip_0_5_temp_0_05/log_out.log
 ##SBATCH -e slurm.%N.%j.err    # STDERR
 
 # Below sets the email notification, swap to your email to receive notifications
@@ -47,7 +47,7 @@ source ~/py311/bin/activate
 # buffering when stdout is a file, or else when watching your output
 # script you’ll only get updated every several lines printed.
 #pip download -i https://test.pypi.org/simple/ dciknn-cuda==0.1.15
-export EXP_NAME=base_9_concat_gain
+export EXP_NAME=clip_0_5_temp_0_05
 export save_dir="/scratch/qmd/results/new_imle/flowers_t/${EXP_NAME}"
 export load_point="latest"
 #!/bin/bash
@@ -57,8 +57,8 @@ exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print 
     --save_dir ${save_dir} \
     --data_root /scratch/qmd/datasets/flowers_t \
     --dataset flowers102-t \
-    --wandb_name base_9_concat_gain \
-    --wandb_id gvrt47w0 \
+    --wandb_name clip_0_5_temp_0_05 \
+    --wandb_id 53y63qlo \
     --force_factor 0.01 \
     --imle_force_resample 2  \
     --lr 0.0002 \
@@ -71,8 +71,10 @@ exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print 
     --compile True \
     --use_multi_res True \
     --merge_concat True \
-    --merge_gain True \
+    --use_clip_loss True \
     --rep_text_emb False \
+    --clip_coef 0.5 \
+    --clip_temp 0.05 \
     --multi_res_scales '32,64,128' \
     --dec_blocks '1x2,4m1,4x3,8m4,8x4,16m8,16x9,32m16,32x21,64m32,64x13,128m64,128x7,256m128' \
     --restore_path ${save_dir}/train/${load_point}-model.th \
