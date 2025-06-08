@@ -15,7 +15,8 @@ from samplers import Sampler, TextClipCondSamplerV2
 from visual.interpolate import random_interp
 from visual.utils import (generate_and_save, generate_for_NN, generate_for_NN_wtext,
                           generate_visualization, generate_visualization_wtext,
-                          get_sample_for_visualization, generate_and_save_wtext)
+                          get_sample_for_visualization, generate_and_save_wtext, 
+                          generate_visualization_same_text, generate_visualization_list_text)
 from helpers.improved_precision_recall import compute_prec_recall
 from dataloaders import text_clip_cond_collate, ZippedDataset
 from torch import autocast
@@ -24,6 +25,7 @@ import torch.multiprocessing as mp
 import os
 import torch.distributed as dist
 from tqdm import tqdm
+import clip
 
 def isValid(num):
     return not num != num
@@ -102,11 +104,10 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
         latent_for_visualization = torch.randn(H.num_rows_visualize, H.num_images_visualize, H.latent_dim).to(device)
     
     mean_loss = float('inf')
-    metrics = {
-        'mean_loss': mean_loss
-    }
         
     while (epoch < H.num_epochs):
+
+        wandb_metrics = {}
 
         torch.distributed.barrier()
 
@@ -121,9 +122,10 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
             with torch.no_grad():
                 imle.eval()
                 if H.use_text:
-                    generate_for_NN_wtext(sampler, split_x_tensor, latents, data_train.txt_clip, 
+                    img_cap_results = generate_for_NN_wtext(H, sampler, split_x_tensor, latents, data_train.txt_clip, 
                                 data_train.txt_list, viz_batch_original.shape, imle,
-                                f'{H.save_dir}/NN-samples_{epoch}-imle', logprint)
+                                f'{H.save_dir}/NN-samples', logprint, epoch)
+                    wandb_metrics.update(img_cap_results)
                 else:
                     generate_for_NN(sampler, split_x_tensor[:H.num_images_visualize], latents,
                                 viz_batch_original.shape, imle,
@@ -198,12 +200,13 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
                     imle.eval()
                     with torch.no_grad():
                         if H.use_text:
-                            generate_visualization_wtext(H, sampler, viz_batch_original, data_train.txt_clip, data_train.txt_list,
+                            wandb_metrics.update(generate_visualization_wtext(H, iterate, sampler, viz_batch_original, data_train.txt_clip, data_train.txt_list,
                                                 sampler.selected_latents[0: H.num_images_visualize],
                                                 sampler.last_selected_latents[0: H.num_images_visualize],
                                                 latent_for_visualization,
                                                 viz_batch_original.shape, imle,
-                                                f'{H.save_dir}/samples-{iterate}', logprint, experiment)
+                                                f'{H.save_dir}/samples', logprint, experiment))
+                            wandb_metrics.update(generate_visualization_list_text(H, sampler, H.latent_dim, imle, f'{H.save_dir}/same-text', logprint, iterate))
                         else:
                             generate_visualization(H, sampler, viz_batch_original,
                                                 sampler.selected_latents[0: H.num_images_visualize],
@@ -271,18 +274,20 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
 
             if epoch % 5 == 0:
                 logprint(model=H.desc, type='train_loss', epoch=epoch, step=iterate, **metrics)
+        
+        metrics.update(wandb_metrics)
 
 
         if (epoch % 25 == 0 and is_main_process()):
             imle.eval()
             with torch.no_grad():
                 if H.use_text:
-                    generate_visualization_wtext(H, sampler, viz_batch_original, data_train.txt_clip, data_train.txt_list,
+                    metrics.update(generate_visualization_wtext(H, None, sampler, viz_batch_original, data_train.txt_clip, data_train.txt_list,
                                         sampler.selected_latents[0: H.num_images_visualize],
                                         sampler.last_selected_latents[0: H.num_images_visualize],
                                         latent_for_visualization,
                                         viz_batch_original.shape, imle,
-                                        f'{H.save_dir}/latest', logprint, experiment)
+                                        f'{H.save_dir}/latest', logprint, experiment))
                 else:
                     generate_visualization(H, sampler, viz_batch_original,
                                         sampler.selected_latents[0: H.num_images_visualize],
@@ -396,6 +401,31 @@ def main():
             
         #     cur_fid = fid.compute_fid(f'{H.data_root}/img', f'{H.save_dir}/fid/', verbose=False)
         #     print("FID: ", cur_fid)
+    
+    elif H.mode == 'eval_text':
+        subset_len = H.subset_len
+        if subset_len == -1:
+            subset_len = len(data_train)
+        if H.use_text:
+            sampler = TextClipCondSamplerV2(H, len(data_train), preprocess_fn)
+        else:
+            sampler = Sampler(H, len(data_train), preprocess_fn)
+        # generate_and_save(H, imle, sampler, 5000)
+        num = 5
+        text = "the petals are orange, the flower is completely open reveling the off red stamen."
+        # text = "the flower is pink withe petals that are soft, smooth and petals that are separately arranged around sepals in many layers"
+        device = torch.device("cuda", torch.cuda.current_device())
+        model, _ = clip.load('ViT-B/32', device)
+        text_input = clip.tokenize(text).to(device)
+        txt = model.encode_text(text_input).squeeze().repeat(num, 1)
+        torch.distributed.barrier()
+        
+        if(is_main_process()):
+            print("Generating samples")
+
+        imle.eval()
+        generate_visualization_same_text(sampler, txt, num, H.latent_dim, imle, f'{H.save_dir}/same_text1.png', logprint)
+        torch.distributed.barrier()
 
     elif H.mode == 'interpolate':
         if(is_main_process()):

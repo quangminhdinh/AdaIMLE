@@ -23,15 +23,24 @@ class TextClipCondSamplerV2(Sampler):
         print(f"Pool size: {self.pool_size}")
 
         self.use_clip = H.use_clip_loss
+        clip_model, clip_preprocess = clip.load('ViT-B/32', self.device)
+        clip_model = torch.compile(clip_model)
         if self.use_clip:
-            clip_model, clip_preprocess = clip.load('ViT-B/32', self.device)
-            self.clip_encoder = torch.compile(clip_model)
+            self.clip_encoder = clip_model
             self.clip_preprocess = clip_preprocess
             self.clip_preprocess.transforms.pop(2)
             self.clip_preprocess.transforms.pop(2)
             print(f"Adding CLIP loss with coefficient {self.H.clip_coef} and temperature {self.H.clip_temp}!")
         if self.H.use_clip_l2:
             print(f"Applying L2 loss to img clip features with coefficient {self.H.l2_clip_coef}!")
+        
+        self.sample_texts = ["the petals are purple, the flower is completely open reveling the off red stamen.",
+                             "the flower is pink withe petals that are soft, smooth and petals that are separately arranged around sepals in many layers"]
+        self.num_rand_samp = H.num_rand_samp
+        if(is_main_process()):
+            text_input = clip.tokenize(self.sample_texts).to(self.device)
+            txt_feats = clip_model.encode_text(text_input)
+            self.sample_text_feats = torch.cat([txt.repeat(self.num_rand_samp, 1) for txt in txt_feats]).to(self.device)
 
     def cosine_similarity_loss(self, image_embeds, text_embeds):
         # Normalize the embeddings

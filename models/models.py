@@ -172,12 +172,14 @@ class Decoder(nn.Module):
 
     def forward(self, latent_code, txt_embed, input_is_w=False):
         assert latent_code.shape[0] == txt_embed.shape[0]
-        if not input_is_w:
-            w = self.mapping_network(latent_code)
+        if self.H.merge_before_map and not self.rep_text_emb:
+            w = self._merge(latent_code, txt_embed)
         else:
             w = latent_code
+        if not input_is_w:
+            w = self.mapping_network(w)
         
-        if not self.rep_text_emb:
+        if not self.H.merge_before_map and not self.rep_text_emb:
             w = self._merge(w, txt_embed)
         
         x = self.constant.repeat(latent_code.shape[0], 1, 1, 1)

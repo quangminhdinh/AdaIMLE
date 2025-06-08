@@ -9,6 +9,7 @@ scikit_learn
 torchvision
 tqdm==4.64.0
 wandb
+wandb[media]
 # faiss-gpu
 # faiss-gpu-cu12
 datasets

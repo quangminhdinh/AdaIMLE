@@ -6,6 +6,7 @@ import os
 import shutil
 from helpers.utils import is_main_process, get_rank, get_world_size
 import json
+import wandb
 
 
 def delete_content_of_dir(folder):
@@ -41,7 +42,7 @@ def generate_for_NN(sampler, orig, initial, shape, ema_imle, fname, logprint):
     imageio.imwrite(fname, im)
 
 
-def generate_for_NN_wtext(sampler, orig, initial, text_clip, text, shape, ema_imle, fname, logprint):
+def generate_for_NN_wtext(H, sampler, orig, initial, text_clip, text, shape, ema_imle, fname, logprint, iteration):
     mb = shape[0] # batch
     initial = initial[:mb].to(ema_imle.device)
     text_clip = text_clip[:mb].to(ema_imle.device)
@@ -52,10 +53,15 @@ def generate_for_NN_wtext(sampler, orig, initial, text_clip, text, shape, ema_im
     im = np.concatenate(batches, axis=0).reshape((n_rows, mb, *shape[1:])).transpose([0, 2, 1, 3, 4]).reshape(
         [n_rows * shape[1], mb * shape[2], 3])
 
-    logprint(f'printing samples to {fname}')
-    imageio.imwrite(f"{fname}.png", im)
-    with open(f'{fname}.json', 'w') as fp:
+    logprint(f'printing samples to {fname}-{iteration}')
+    imageio.imwrite(f"{fname}-{iteration}.png", im)
+    with open(f'{fname}-{iteration}.json', 'w') as fp:
         json.dump(text, fp, indent=4)
+    if H.use_wandb:
+        lst_name = os.path.basename(fname)
+        out_im = wandb.Image(im, caption=lst_name)
+        table = wandb.Table(data=[text], columns=[f"caption {i}" for i in range(len(text))])
+        return {lst_name: out_im, f"{lst_name}_captions": table}
 
 
 def generate_visualization(H, sampler, orig, initial, last_latents, latent_for_visualization, shape, imle, fname, logprint, experiment=None):
@@ -77,7 +83,7 @@ def generate_visualization(H, sampler, orig, initial, last_latents, latent_for_v
         experiment.log_image(fname, overwrite=True)
 
 
-def generate_visualization_wtext(H, sampler, orig, all_text, txt_list, initial, last_latents, latent_for_visualization, shape, imle, fname, logprint, experiment=None):
+def generate_visualization_wtext(H, iteration, sampler, orig, all_text, txt_list, initial, last_latents, latent_for_visualization, shape, imle, fname, logprint, experiment=None):
     mb = shape[0]
     initial = initial[:mb]
     last_latents = last_latents[:mb]
@@ -95,12 +101,49 @@ def generate_visualization_wtext(H, sampler, orig, all_text, txt_list, initial, 
     im = np.concatenate(batches, axis=0).reshape((n_rows, mb, *shape[1:])).transpose([0, 2, 1, 3, 4]).reshape(
         [n_rows * shape[1], mb * shape[2], 3])
 
-    logprint(f'printing samples to {fname}')
-    imageio.imwrite(f'{fname}.png', im)
+    fout = f"{fname}-{iteration}" if iteration is not None else fname
+
+    logprint(f'printing samples to {fout}')
+    imageio.imwrite(f'{fout}.png', im)
     if(experiment):
-        experiment.log_image(fname, overwrite=True)
-    with open(f'{fname}.json', 'w') as fp:
+        experiment.log_image(fout, overwrite=True)
+    with open(f'{fout}.json', 'w') as fp:
         json.dump(sampled_txt, fp, indent=4)
+    if H.use_wandb:
+        lst_name = os.path.basename(fname)
+        out_im = wandb.Image(im, caption=lst_name)
+        table = wandb.Table(data=[sampled_txt], columns=[f"caption {i}" for i in range(len(sampled_txt))])
+        return {lst_name: out_im, f"{lst_name}_captions": table}
+
+
+def generate_visualization_same_text(sampler, text, num, latent_dim, imle, fname, logprint):
+    latents = torch.randn((num, latent_dim), device=imle.device)
+    batches = sampler.sample(latents, text, imle, None) # n, y, x, c
+
+    im = np.concatenate(batches, axis=1)
+
+    logprint(f'printing samples to {fname}')
+    imageio.imwrite(f'{fname}', im)
+
+
+def generate_visualization_list_text(H, sampler, latent_dim, imle, fname, logprint, iteration):
+    latents = torch.randn((sampler.sample_text_feats.shape[0], latent_dim), device=imle.device)
+    batches = sampler.sample(latents, sampler.sample_text_feats, imle, None) # n * l, y, x, c
+    shape = batches.shape
+
+    im = batches.reshape(-1, sampler.num_rand_samp, *shape[1:]).transpose([0, 2, 1, 3, 4]).reshape(
+        -1, sampler.num_rand_samp * shape[2], 3)
+    # im = np.concatenate(batches, axis=1)
+
+    logprint(f'printing samples to {fname}-{iteration}')
+    imageio.imwrite(f'{fname}-{iteration}.png', im)
+    with open(f'{fname}-{iteration}.json', 'w') as fp:
+        json.dump(sampler.sample_texts, fp, indent=4)
+    if H.use_wandb:
+        lst_name = os.path.basename(fname)
+        out_im = wandb.Image(im, caption=lst_name)
+        table = wandb.Table(data=[sampler.sample_texts], columns=[f"caption {i}" for i in range(len(sampler.sample_texts))])
+        return {lst_name: out_im, f"{lst_name}_captions": table}
 
 
 def generate_and_save(H, imle, sampler, n_samp, subdir='fid'):
