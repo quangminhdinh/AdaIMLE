@@ -1,5 +1,6 @@
 import torch
 from torch.utils.data import Dataset
+from fast_pytorch_kmeans import KMeans
 
 
 class TextCLIPCondDataset(Dataset):
@@ -21,6 +22,13 @@ class TextCLIPCondDataset(Dataset):
       if self.img_clip is not None:
         self.img_clip = self.img_clip[:H.subset_len, ...]
     self.latent = None
+
+    if H.n_clusters > 0:
+      self.kmeans = KMeans(n_clusters=H.n_clusters, mode='euclidean', verbose=1)
+      labels = self.kmeans.fit_predict(self.txt_clip)
+      self.txt_clip = self.kmeans.centroids[labels]
+    else:
+      self.kmeans = None
   
   def update_latent(self, latent):
     self.latent = latent

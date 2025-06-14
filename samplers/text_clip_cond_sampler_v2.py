@@ -13,7 +13,7 @@ from torch import autocast
 
 class TextClipCondSamplerV2(Sampler):
 
-    def __init__(self, H, sz, preprocess_fn):
+    def __init__(self, H, sz, preprocess_fn, kmeans=None):
         super().__init__(H, sz, preprocess_fn)
 
         print(f"\n{self.__class__.__name__}'s configurations.")
@@ -39,7 +39,10 @@ class TextClipCondSamplerV2(Sampler):
         self.num_rand_samp = H.num_rand_samp
         if(is_main_process()):
             text_input = clip.tokenize(self.sample_texts).to(self.device)
-            txt_feats = clip_model.encode_text(text_input)
+            txt_feats = clip_model.encode_text(text_input).cpu()
+            if kmeans is not None:
+                labels = kmeans.predict(txt_feats)
+                txt_feats = kmeans.centroids[labels]
             self.sample_text_feats = torch.cat([txt.repeat(self.num_rand_samp, 1) for txt in txt_feats]).to(self.device)
 
     def cosine_similarity_loss(self, image_embeds, text_embeds):

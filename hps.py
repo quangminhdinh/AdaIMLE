@@ -131,6 +131,7 @@ def add_imle_arguments(parser):
     parser.add_argument('--iters_per_images', type=int, default=1000)  # number of iterations per sample save
     parser.add_argument('--num_images_visualize', type=int, default=10)  # number of images to visualize
     parser.add_argument('--num_rows_visualize', type=int, default=9)  # number of rows to visualize, e.g. 3 means 3x8=24 images
+    parser.add_argument('--merge_no_linear', default=False, type=lambda x: bool(x))
 
     parser.add_argument('--residual_ratio', type=float, default=1.0)
     parser.add_argument('--use_text', default=False, type=lambda x: bool(x))
@@ -138,12 +139,14 @@ def add_imle_arguments(parser):
     parser.add_argument('--style_gan_merge', default=False, type=lambda x: bool(x))
     parser.add_argument('--merge_gain', default=False, type=lambda x: bool(x))
     parser.add_argument('--merge_concat', default=False, type=lambda x: bool(x))
+    parser.add_argument('--merge_film', default=False, type=lambda x: bool(x))
     parser.add_argument('--use_clip_loss', default=False, type=lambda x: bool(x))
     parser.add_argument('--use_clip_loss_multi_res', default=False, type=lambda x: bool(x))
     parser.add_argument('--use_clip_l2', default=False, type=lambda x: bool(x))
     parser.add_argument('--l2_clip_coef', type=float, default=0.1)
     parser.add_argument('--merge_before_map', default=False, type=lambda x: bool(x))
     parser.add_argument('--num_rand_samp', type=int, default=5)  # dci number of components
+    parser.add_argument('--n_clusters', type=int, default=-1)
 
     parser.add_argument('--accumulation_steps', type=int, default=1)  # accumulation steps
     parser.add_argument('--num_comp_indices', type=int, default=2)  # dci number of components

@@ -81,7 +81,7 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
     subset_len = H.subset_len if H.subset_len != -1 else len(data_train)
 
     if H.use_text:
-        sampler = TextClipCondSamplerV2(H, subset_len, preprocess_fn)
+        sampler = TextClipCondSamplerV2(H, subset_len, preprocess_fn, kmeans=data_train.kmeans)
     else:
         sampler = Sampler(H, subset_len, preprocess_fn)
     torch.distributed.barrier()

@@ -115,6 +115,14 @@ class DecBlock(nn.Module):
         x = self.resnet(x)
         return x
 
+
+class DecBlock2(DecBlock):
+
+    def __init__(self, H, res, mixin, n_blocks):
+        super().__init__(H, res, mixin, n_blocks)
+        self.adaIN = AdaptiveInstanceNorm(self.widths[res], H.latent_dim + 512)
+
+
 class Decoder(nn.Module):
     def __init__(self, H):
         super().__init__()
@@ -143,10 +151,11 @@ class Decoder(nn.Module):
             else:
                 self.txt_down = nn.Linear(512 + H.latent_dim, H.latent_dim)
         else:
+            up_dim = 2 * H.latent_dim if H.merge_film else H.latent_dim
             if H.rep_text_emb:
-                self.txt_up = nn.ModuleList([nn.Linear(512, H.latent_dim) for _ in range(len(blocks))])
+                self.txt_up = nn.ModuleList([nn.Linear(512, up_dim) for _ in range(len(blocks))])
             else:
-                self.txt_up = nn.Linear(512, H.latent_dim)
+                self.txt_up = nn.Linear(512, up_dim)
     
     def _merge(self, w, txt_embed, idx=None):
         if not self.H.merge_concat:
@@ -154,6 +163,9 @@ class Decoder(nn.Module):
                 y = self.txt_up[idx](txt_embed)
             else:
                 y = self.txt_up(txt_embed)
+            if self.H.merge_film:
+                gamma, beta = y.chunk(2, dim=1)
+                return gamma * w + beta
         else:
             y = txt_embed
         if self.H.merge_gain:
@@ -194,10 +206,53 @@ class Decoder(nn.Module):
         return x
 
 
+class Decoder2(nn.Module):
+    def __init__(self, H):
+        super().__init__()
+        self.H = H
+        self.mapping_network = MappingNetowrk(code_dim=H.latent_dim + 512, n_mlp=H.n_mpl, lr_multiplier=H.mapping_lr_multiplier)
+        resos = set()
+        dec_blocks = []
+        self.widths = get_width_settings(H.width, H.custom_width_str)
+        blocks = parse_layer_string(H.dec_blocks)
+        for idx, (res, mixin) in enumerate(blocks):
+            dec_blocks.append(DecBlock2(H, res, mixin, n_blocks=len(blocks)))
+            resos.add(res)
+        self.resolutions = sorted(resos)
+        self.dec_blocks = nn.ModuleList(dec_blocks)
+        first_res = self.resolutions[0]
+        self.constant = nn.Parameter(torch.randn(1, self.widths[first_res], first_res, first_res))
+        self.resnet = get_1x1(H.width, H.image_channels)
+        # if self.H.merge_gain:
+        #     self.m_gain = nn.Parameter(torch.ones(H.latent_dim))
+        self.gain = nn.Parameter(torch.ones(1, H.image_channels, 1, 1))
+        self.bias = nn.Parameter(torch.zeros(1, H.image_channels, 1, 1))
+
+    def forward(self, latent_code, txt_embed, input_is_w=False):
+        assert latent_code.shape[0] == txt_embed.shape[0]
+        w = torch.cat([latent_code, txt_embed], dim=-1)
+        if not input_is_w:
+            w = self.mapping_network(w)
+        
+        x = self.constant.repeat(latent_code.shape[0], 1, 1, 1)
+
+        for idx, block in enumerate(self.dec_blocks):
+            x = block(x, w)
+        x = self.resnet(x)
+        x = self.gain * x + self.bias
+        return x
+
+
+def get_dec(H):
+    if H.merge_no_linear:
+        return Decoder2(H)
+    return Decoder(H)
+
+
 class IMLE(nn.Module):
     def __init__(self, H):
         super().__init__()
-        self.decoder = Decoder(H)
+        self.decoder = get_dec(H)
 
     def forward(self, latents, txt_embed, input_is_w=False):
         return self.decoder.forward(latents, txt_embed, input_is_w)
