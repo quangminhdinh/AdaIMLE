@@ -1,0 +1,1 @@
+salloc --time=0:29:0 --ntasks=8 --gres=gpu:h100:1 --mem=80G --nodes=1 -p gpubackfill

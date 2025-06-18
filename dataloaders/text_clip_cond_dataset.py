@@ -1,5 +1,7 @@
 import torch
 from torch.utils.data import Dataset
+import torch.nn.functional as F
+
 from fast_pytorch_kmeans import KMeans
 
 
@@ -22,6 +24,9 @@ class TextCLIPCondDataset(Dataset):
       if self.img_clip is not None:
         self.img_clip = self.img_clip[:H.subset_len, ...]
     self.latent = None
+    
+    if H.text_unit_norm:
+      self.txt_clip = F.normalize(self.txt_clip, p=2, dim=1)
 
     if H.n_clusters > 0:
       self.kmeans = KMeans(n_clusters=H.n_clusters, mode='euclidean', verbose=1)
