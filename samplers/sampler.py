@@ -65,7 +65,7 @@ class Sampler:
         self.dino_mean = torch.tensor([0.48145466, 0.4578275, 0.40821073], device=self.device).view(1, 3, 1, 1)
         self.dino_std = torch.tensor([0.26862954, 0.26130258, 0.27577711], device=self.device).view(1, 3, 1, 1)
 
-        model = AutoModel.from_pretrained("facebook/dinov2-base").eval().to(self.device)
+        model = AutoModel.from_pretrained("facebook/dinov2-base", cache_dir=H.hf_cache).eval().to(self.device)
         self.dino_encoder = torch.compile(model)
 
 

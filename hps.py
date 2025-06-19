@@ -217,8 +217,10 @@ def add_imle_arguments(parser):
     parser.add_argument('--wandb_name', type=str, default='AdaptiveIMLE')  # used for wandb
     parser.add_argument('--wandb_project', type=str, default='AdaptiveIMLE')  # used for wandb
     parser.add_argument('--use_wandb', type=int, default=1)
-    parser.add_argument('--wandb_mode', type=str, default='online')
+    parser.add_argument('--wandb_mode', type=str, default='offline')
     parser.add_argument('--wandb_id', type=str, default=None)
+    
+    parser.add_argument('--hf_cache', type=str, default='/scratch/qmd/hf_cache')
 
     parser.add_argument('--use_comet', default=False, type=lambda x: bool(x))
     parser.add_argument('--comet_name', type=str, default='AdaptiveIMLE')  # used in comet.ml

@@ -1,18 +1,17 @@
 # scipy
 # clean_fid==0.1.35
 # comet_ml
-imageio
+# imageio
 # numpy
 # pandas
-torch
-scikit_learn
-torchvision
-tqdm==4.64.0
-wandb
-wandb[media]
+# torch
+# scikit_learn
+# torchvision
+# tqdm==4.64.0
+# wandb
 # faiss-gpu
 # faiss-gpu-cu12
-datasets
+# datasets
 # pillow
 # psutil
 # transformers
@@ -21,3 +20,4 @@ datasets
 # ftfy 
 # regex
 # clip ??
+# fast-pytorch-kmeans
