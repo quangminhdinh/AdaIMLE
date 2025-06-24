@@ -221,6 +221,7 @@ def add_imle_arguments(parser):
     parser.add_argument('--wandb_id', type=str, default=None)
     
     parser.add_argument('--hf_cache', type=str, default='/scratch/qmd/hf_cache')
+    parser.add_argument('--text_unit_norm', default=False, type=lambda x: bool(x))
 
     parser.add_argument('--use_comet', default=False, type=lambda x: bool(x))
     parser.add_argument('--comet_name', type=str, default='AdaptiveIMLE')  # used in comet.ml

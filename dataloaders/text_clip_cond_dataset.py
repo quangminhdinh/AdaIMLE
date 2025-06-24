@@ -1,5 +1,7 @@
 import torch
 from torch.utils.data import Dataset
+import torch.nn.functional as F
+
 from fast_pytorch_kmeans import KMeans
 
 
@@ -29,6 +31,8 @@ class TextCLIPCondDataset(Dataset):
       self.txt_clip = self.kmeans.centroids[labels]
     else:
       self.kmeans = None
+    if H.text_unit_norm:
+      self.txt_clip = F.normalize(self.txt_clip, p=2, dim=1)
   
   def update_latent(self, latent):
     self.latent = latent
