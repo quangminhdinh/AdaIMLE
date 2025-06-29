@@ -181,8 +181,8 @@ def set_up_data_wtext(H):
     shift_loss = torch.tensor([shift_loss], device=device).view(1, 1, 1, 1)
     scale_loss = torch.tensor([scale_loss], device=device).view(1, 1, 1, 1)
 
-    train_data = TextCLIPCondDataset(train, H)
-    valid_data = TextCLIPCondDataset(valid, H)
+    train_data = TextCLIPCondDataset(train, H, device)
+    valid_data = TextCLIPCondDataset(valid, H, device)
     untranspose = False
             
     H.global_batch_size = H.n_batch * get_world_size()

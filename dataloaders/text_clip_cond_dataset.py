@@ -1,13 +1,16 @@
+import os
 import torch
 from torch.utils.data import Dataset
 import torch.nn.functional as F
 
 from fast_pytorch_kmeans import KMeans
 
+from helpers.utils import is_main_process
+
 
 class TextCLIPCondDataset(Dataset):
   
-  def __init__(self, data, H):    
+  def __init__(self, data, H, device):    
     super().__init__()
     
     print(f"\n{self.__class__.__name__}'s configurations.")
@@ -24,6 +27,31 @@ class TextCLIPCondDataset(Dataset):
       if self.img_clip is not None:
         self.img_clip = self.img_clip[:H.subset_len, ...]
     self.latent = None
+    
+    if H.random_proj_sz > 0:
+      if(is_main_process()):
+        if H.normalize_random_proj:
+          path = f'{H.data_root}/proj{H.random_proj_sz}_norm.pt'
+        else:
+          path = f'{H.data_root}/proj{H.random_proj_sz}.pt'
+        if os.path.exists(path):
+          proj = torch.load(path, map_location='cpu', weights_only=True)
+        else:
+          proj = torch.randn(512, H.random_proj_sz, device="cpu", dtype=torch.half)
+          if H.normalize_random_proj:
+            proj = F.normalize(proj, p=2, dim=1)
+          torch.save(proj, path)
+        proj = proj.to(device)
+      else:
+        proj = torch.empty(512, H.random_proj_sz, device=device)
+      
+      torch.distributed.barrier()
+      torch.distributed.broadcast(proj, src=0)
+      torch.distributed.barrier()
+      self.txt_clip = torch.mm(self.txt_clip, proj.cpu())
+      self.rand_proj = proj.cpu()
+    else:
+      self.rand_proj = None
 
     if H.n_clusters > 0:
       self.kmeans = KMeans(n_clusters=H.n_clusters, mode='euclidean', verbose=1)
