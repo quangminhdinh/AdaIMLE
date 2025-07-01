@@ -26,7 +26,7 @@ def crop_resize(img, size):
     return np.asarray(im2)
 
 img_size = 256
-data_root = "/scratch/qmd/datasets/flowers_t"
+data_root = "/scratch/qmd/datasets/flowers_all"
 cache_dir = "/scratch/qmd/hf_cache"
 use_img_emb = True
 
@@ -46,7 +46,7 @@ if save_f:
     os.makedirs(p, exist_ok=True)
 
 with torch.no_grad():
-    for i in tqdm(range(1000), desc="Preprocessing flowers102-t:"):
+    for i in tqdm(range(len(ds)), desc="Preprocessing flowers102-t:"):
         img_path = os.path.join(p, f"{i}.jpg")
         if save_f:
             raw_img = crop_resize(np.asarray(ds[i]["image"]), img_size)

@@ -168,6 +168,7 @@ def add_imle_arguments(parser):
     parser.add_argument('--l2_coef', type=float, default=0.1)  # l2 loss coefficient
     parser.add_argument('--clip_coef', type=float, default=0.1)
     parser.add_argument('--clip_temp', type=float, default=0.07)
+    parser.add_argument('--text_noise_ratio', type=float, default=0.1)
     parser.add_argument('--dino_coef', type=float, default=1.0)  # l2 loss coefficient
     parser.add_argument('--force_factor', type=float, default=5)  # sampling factor for imle, i.e., force_factor * len(dataset)
     parser.add_argument('--change_coef', type=float, default=0.04)  # \gamma in the paper, rate of change of the thresholds, tau_i

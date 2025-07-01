@@ -179,7 +179,7 @@ class Decoder(nn.Module):
         else:
             nw = w
         if self.H.style_gan_merge:
-            y = torch.randn_like(y, device=y.device) * y
+            y = torch.randn_like(y, device=y.device) * self.H.text_noise_ratio + y
         if self.H.merge_concat:
             out = torch.cat([nw, y], dim=-1)
             if idx is not None:
