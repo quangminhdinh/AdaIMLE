@@ -13,7 +13,7 @@ from torch import autocast
 
 class TextClipCondSamplerV2(Sampler):
 
-    def __init__(self, H, sz, preprocess_fn, kmeans=None):
+    def __init__(self, H, sz, preprocess_fn, kmeans=None, rand_proj=None):
         super().__init__(H, sz, preprocess_fn)
 
         print(f"\n{self.__class__.__name__}'s configurations.")
@@ -40,6 +40,8 @@ class TextClipCondSamplerV2(Sampler):
         if(is_main_process()):
             text_input = clip.tokenize(self.sample_texts).to(self.device)
             txt_feats = clip_model.encode_text(text_input).cpu()
+            if rand_proj is not None:
+                txt_feats = torch.mm(txt_feats, rand_proj)
             if kmeans is not None:
                 labels = kmeans.predict(txt_feats)
                 txt_feats = kmeans.centroids[labels]

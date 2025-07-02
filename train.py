@@ -11,7 +11,7 @@ import wandb
 from dataloaders.data import set_up_data
 from helpers.train_helpers import (load_imle, load_opt, save_model, set_up_hyperparams, update_ema)
 from helpers.utils import init_distributed_mode, is_main_process, get_world_size, get_rank
-from samplers import Sampler, TextClipCondSamplerV2
+from samplers import Sampler, TextClipCondSamplerV2, UncondSamplerTest
 from visual.interpolate import random_interp
 from visual.utils import (generate_and_save, generate_for_NN, generate_for_NN_wtext,
                           generate_visualization, generate_visualization_wtext,
@@ -81,7 +81,10 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
     subset_len = H.subset_len if H.subset_len != -1 else len(data_train)
 
     if H.use_text:
-        sampler = TextClipCondSamplerV2(H, subset_len, preprocess_fn, kmeans=data_train.kmeans)
+        if H.unconditional:
+            sampler = UncondSamplerTest(H, subset_len, preprocess_fn, kmeans=data_train.kmeans, rand_proj=data_train.rand_proj)
+        else:
+            sampler = TextClipCondSamplerV2(H, subset_len, preprocess_fn, kmeans=data_train.kmeans, rand_proj=data_train.rand_proj)
     else:
         sampler = Sampler(H, subset_len, preprocess_fn)
     torch.distributed.barrier()

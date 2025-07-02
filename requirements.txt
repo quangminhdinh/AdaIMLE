@@ -21,3 +21,4 @@ datasets
 # ftfy 
 # regex
 # clip ??
+# fast-pytorch-kmeans

@@ -118,15 +118,16 @@ class DecBlock(nn.Module):
 
 class DecBlock2(DecBlock):
 
-    def __init__(self, H, res, mixin, n_blocks):
+    def __init__(self, H, res, mixin, n_blocks, txt_sz):
         super().__init__(H, res, mixin, n_blocks)
-        self.adaIN = AdaptiveInstanceNorm(self.widths[res], H.latent_dim + 512)
+        self.adaIN = AdaptiveInstanceNorm(self.widths[res], H.latent_dim + txt_sz)
 
 
 class Decoder(nn.Module):
     def __init__(self, H):
         super().__init__()
         self.H = H
+        self.txt_sz = H.random_proj_sz if H.random_proj_sz > 0 else 512
         self.mapping_network = MappingNetowrk(code_dim=H.latent_dim, n_mlp=H.n_mpl, lr_multiplier=H.mapping_lr_multiplier)
         resos = set()
         dec_blocks = []
@@ -145,19 +146,24 @@ class Decoder(nn.Module):
         self.gain = nn.Parameter(torch.ones(1, H.image_channels, 1, 1))
         self.bias = nn.Parameter(torch.zeros(1, H.image_channels, 1, 1))
         self.rep_text_emb = H.rep_text_emb
+        if self.H.unconditional:
+            print("Initializing unconditional model!")
+            return
         if H.merge_concat:
             if H.rep_text_emb:
-                self.txt_down = nn.ModuleList([nn.Linear(512 + H.latent_dim, H.latent_dim) for _ in range(len(blocks))])
+                self.txt_down = nn.ModuleList([nn.Linear(self.txt_sz + H.latent_dim, H.latent_dim) for _ in range(len(blocks))])
             else:
-                self.txt_down = nn.Linear(512 + H.latent_dim, H.latent_dim)
+                self.txt_down = nn.Linear(self.txt_sz + H.latent_dim, H.latent_dim)
         else:
             up_dim = 2 * H.latent_dim if H.merge_film else H.latent_dim
             if H.rep_text_emb:
-                self.txt_up = nn.ModuleList([nn.Linear(512, up_dim) for _ in range(len(blocks))])
+                self.txt_up = nn.ModuleList([nn.Linear(self.txt_sz, up_dim) for _ in range(len(blocks))])
             else:
-                self.txt_up = nn.Linear(512, up_dim)
+                self.txt_up = nn.Linear(self.txt_sz, up_dim)
     
     def _merge(self, w, txt_embed, idx=None):
+        if self.H.unconditional:
+            return w
         if not self.H.merge_concat:
             if idx is not None:
                 y = self.txt_up[idx](txt_embed)
@@ -173,7 +179,7 @@ class Decoder(nn.Module):
         else:
             nw = w
         if self.H.style_gan_merge:
-            y = torch.randn_like(y, device=y.device) * y
+            y = torch.randn_like(y, device=y.device) * self.H.text_noise_ratio + y
         if self.H.merge_concat:
             out = torch.cat([nw, y], dim=-1)
             if idx is not None:
@@ -210,13 +216,14 @@ class Decoder2(nn.Module):
     def __init__(self, H):
         super().__init__()
         self.H = H
-        self.mapping_network = MappingNetowrk(code_dim=H.latent_dim + 512, n_mlp=H.n_mpl, lr_multiplier=H.mapping_lr_multiplier)
+        self.txt_sz = H.random_proj_sz if H.random_proj_sz > 0 else 512
+        self.mapping_network = MappingNetowrk(code_dim=H.latent_dim + self.txt_sz, n_mlp=H.n_mpl, lr_multiplier=H.mapping_lr_multiplier)
         resos = set()
         dec_blocks = []
         self.widths = get_width_settings(H.width, H.custom_width_str)
         blocks = parse_layer_string(H.dec_blocks)
         for idx, (res, mixin) in enumerate(blocks):
-            dec_blocks.append(DecBlock2(H, res, mixin, n_blocks=len(blocks)))
+            dec_blocks.append(DecBlock2(H, res, mixin, n_blocks=len(blocks), txt_sz=self.txt_sz))
             resos.add(res)
         self.resolutions = sorted(resos)
         self.dec_blocks = nn.ModuleList(dec_blocks)

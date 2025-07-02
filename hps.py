@@ -133,6 +133,10 @@ def add_imle_arguments(parser):
     parser.add_argument('--num_rows_visualize', type=int, default=9)  # number of rows to visualize, e.g. 3 means 3x8=24 images
     parser.add_argument('--merge_no_linear', default=False, type=lambda x: bool(x))
     parser.add_argument('--text_unit_norm', default=False, type=lambda x: bool(x))
+    parser.add_argument('--random_proj_sz', type=int, default=-1)
+    parser.add_argument('--text_noise_ratio', type=float, default=0.1)
+    parser.add_argument('--normalize_random_proj', default=False, type=lambda x: bool(x))
+    parser.add_argument('--unconditional', default=False, type=lambda x: bool(x))
 
     parser.add_argument('--residual_ratio', type=float, default=1.0)
     parser.add_argument('--use_text', default=False, type=lambda x: bool(x))

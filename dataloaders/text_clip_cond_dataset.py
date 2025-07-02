@@ -1,13 +1,16 @@
+import os
 import torch
 from torch.utils.data import Dataset
 import torch.nn.functional as F
 
 from fast_pytorch_kmeans import KMeans
 
+from helpers.utils import is_main_process
+
 
 class TextCLIPCondDataset(Dataset):
   
-  def __init__(self, data, H):    
+  def __init__(self, data, H, device):    
     super().__init__()
     
     print(f"\n{self.__class__.__name__}'s configurations.")
@@ -25,8 +28,22 @@ class TextCLIPCondDataset(Dataset):
         self.img_clip = self.img_clip[:H.subset_len, ...]
     self.latent = None
     
-    if H.text_unit_norm:
-      self.txt_clip = F.normalize(self.txt_clip, p=2, dim=1)
+    if H.random_proj_sz > 0:
+      if H.normalize_random_proj:
+        path = f'{H.data_root}/proj{H.random_proj_sz}_norm.pt'
+      else:
+        path = f'{H.data_root}/proj{H.random_proj_sz}.pt'
+      if os.path.exists(path):
+        proj = torch.load(path, map_location='cpu', weights_only=True)
+      else:
+        proj = torch.randn(512, H.random_proj_sz, device="cpu", dtype=torch.float32)
+        if H.normalize_random_proj:
+          proj = F.normalize(proj, p=2, dim=1)
+        torch.save(proj, path)      
+      self.txt_clip = torch.mm(self.txt_clip.to(torch.float32), proj.to(torch.float32).cpu())
+      self.rand_proj = proj.cpu()
+    else:
+      self.rand_proj = None
 
     if H.n_clusters > 0:
       self.kmeans = KMeans(n_clusters=H.n_clusters, mode='euclidean', verbose=1)
@@ -34,6 +51,8 @@ class TextCLIPCondDataset(Dataset):
       self.txt_clip = self.kmeans.centroids[labels]
     else:
       self.kmeans = None
+    if H.text_unit_norm:
+      self.txt_clip = F.normalize(self.txt_clip, p=2, dim=1)
   
   def update_latent(self, latent):
     self.latent = latent

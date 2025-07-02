@@ -181,8 +181,8 @@ def set_up_data_wtext(H):
     shift_loss = torch.tensor([shift_loss], device=device).view(1, 1, 1, 1)
     scale_loss = torch.tensor([scale_loss], device=device).view(1, 1, 1, 1)
 
-    train_data = TextCLIPCondDataset(train, H)
-    valid_data = TextCLIPCondDataset(valid, H)
+    train_data = TextCLIPCondDataset(train, H, device)
+    valid_data = TextCLIPCondDataset(valid, H, device)
     untranspose = False
             
     H.global_batch_size = H.n_batch * get_world_size()
@@ -367,12 +367,12 @@ def flowers102_text_load(data_root, use_img_emb=False):
     trX = np.load(f'{data_root}/raw_imgs.npy', allow_pickle=True)
     with open(f'{data_root}/raw_txts.json', 'r') as fp:
         raw_txt = json.load(fp)
-    test_num = trX.shape[0] // 10
+    test_num = trX.shape[0] // 100
     tr_va_split_indices = np.random.permutation(trX.shape[0])
     train = {
-        "raw_img": trX[tr_va_split_indices[:-test_num]], 
-        "raw_text": [raw_txt[i] for i in tr_va_split_indices[:-test_num]],
-        "text": txts[tr_va_split_indices[:-test_num]],
+        "raw_img": trX[tr_va_split_indices], 
+        "raw_text": [raw_txt[i] for i in tr_va_split_indices],
+        "text": txts[tr_va_split_indices],
     }
     valid = {
         "raw_img": trX[tr_va_split_indices[-test_num:]], 
@@ -381,7 +381,7 @@ def flowers102_text_load(data_root, use_img_emb=False):
     }
     if use_img_emb:
         imgs = torch.load(f'{data_root}/imgs.pt', map_location='cpu', weights_only=True)
-        train["img"] = imgs[tr_va_split_indices[:-test_num]]
+        train["img"] = imgs[tr_va_split_indices]
         valid["img"] = imgs[tr_va_split_indices[-test_num:]]
     return train, valid
 
