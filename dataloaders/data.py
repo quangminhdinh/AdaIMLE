@@ -19,7 +19,7 @@ from .text_clip_cond_dataset import TextCLIPCondDataset
 
 
 def set_up_data(H):
-    if H.dataset in ['flowers102-t']:
+    if H.dataset in ['flowers102-t', 'celeba']:
         return set_up_data_wtext(H)
     return set_up_data_img(H)
 
@@ -166,6 +166,11 @@ def set_up_data_wtext(H):
         train, valid = flowers102_text_load(H.data_root, H.use_clip_loss)
         # if int(H.force_factor * train["raw_img"].shape[0]) < H.imle_batch:
         #     H.imle_batch = int(H.force_factor * train["raw_img"].shape[0])
+        H.image_channels = 3
+        shift = -112.8666757481         # 71.93867001005759         93.6042881894389
+        scale = 1. / 69.84780273        # 73.66214571500137         65.3031711042093
+    elif H.dataset == 'celeba':
+        train, valid = celeba_load(H.data_root, H.use_clip_loss, H.num_training_samples)
         H.image_channels = 3
         shift = -112.8666757481         # 71.93867001005759         93.6042881894389
         scale = 1. / 69.84780273        # 73.66214571500137         65.3031711042093
@@ -383,6 +388,49 @@ def flowers102_text_load(data_root, use_img_emb=False):
         imgs = torch.load(f'{data_root}/imgs.pt', map_location='cpu', weights_only=True)
         train["img"] = imgs[tr_va_split_indices]
         valid["img"] = imgs[tr_va_split_indices[-test_num:]]
+    return train, valid
+
+
+def celeba_load(org_data_root, use_img_emb=False, num_samples=1000):
+    if num_samples > 0 and num_samples <= 10000:
+        data_root = os.path.join(org_data_root, 'small')
+    else:
+        data_root = org_data_root
+    txts = torch.load(f'{data_root}/txts.pt', map_location='cpu', weights_only=True)
+    trX = np.load(f'{data_root}/raw_imgs.npy', allow_pickle=True)
+    with open(f'{data_root}/raw_txts.json', 'r') as fp:
+        raw_txt = json.load(fp)
+    if num_samples > 0:
+        txts = txts[:num_samples]
+        trX = trX[:num_samples]
+        raw_txt = raw_txt[:num_samples]
+    test_num = 2 #trX.shape[0] // 100
+    tr_va_split_indices = np.random.permutation(trX.shape[0])
+    train = {
+        "raw_img": trX[tr_va_split_indices], 
+        "raw_text": [raw_txt[i] for i in tr_va_split_indices],
+        "text": txts[tr_va_split_indices],
+    }
+    valid = {
+        "raw_img": trX[tr_va_split_indices[-test_num:]], 
+        "raw_text": [raw_txt[i] for i in tr_va_split_indices[-test_num:]],
+        "text": txts[tr_va_split_indices[-test_num:]],
+    }
+    if use_img_emb:
+        imgs = torch.load(f'{data_root}/imgs.pt', map_location='cpu', weights_only=True)
+        if num_samples > 0:
+            imgs = imgs[:num_samples]
+        train["img"] = imgs[tr_va_split_indices]
+        valid["img"] = imgs[tr_va_split_indices[-test_num:]]
+    
+    num_fid = 5000 if num_samples <= 0 else min(5000, num_samples)
+    fid_path = os.path.join(org_data_root, f'img_{num_fid}')
+    if not os.path.exists(fid_path):
+        os.makedirs(fid_path, exist_ok=True)
+        for i in tqdm(range(num_fid), desc="Preparing celeba FID images:"):
+            out = Image.fromarray(trX[i])
+            out.save(f'{fid_path}/{i}.png')
+    train['fid_path'] = fid_path
     return train, valid
 
 

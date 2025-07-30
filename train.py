@@ -26,6 +26,7 @@ import os
 import torch.distributed as dist
 from tqdm import tqdm
 import clip
+import torchvision.transforms as transforms
 
 def isValid(num):
     return not num != num
@@ -107,6 +108,9 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
         latent_for_visualization = torch.randn(H.num_rows_visualize, H.num_images_visualize, H.latent_dim).to(device)
     
     mean_loss = float('inf')
+    
+    if H.augment:
+        augmenter = transforms.RandomHorizontalFlip(p=0.5)
         
     while (epoch < H.num_epochs):
 
@@ -173,7 +177,12 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
 
         # for data in tqdm(data_loader, desc=f"Epoch {epoch}/{H.num_epochs}:", disable=(not is_main_process())):
         for data in data_loader:
-            _, target = preprocess_fn([data["raw_img"]])
+            tgt = data["raw_img"]
+            if H.augment:
+                tgt = tgt.permute(0, 3, 1, 2)
+                tgt = augmenter(tgt)
+                tgt = tgt.permute(0, 2, 3, 1)
+            _, target = preprocess_fn([tgt])
             target = target.to(device)
             latents = data["latent"].to(device)
             text = data["text"].to(device)
@@ -255,9 +264,15 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
             torch.distributed.barrier()
             torch.cuda.empty_cache()
             if(is_main_process()):
-                cur_fid = fid.compute_fid(f'{H.data_root}/img', f'{H.save_dir}/fid/', verbose=False, use_dataparallel=False, num_workers=0, device=device)
+                cur_fid = fid.compute_fid(
+                    data_train.fid_path if data_train.fid_path is not None else f'{H.data_root}/img', 
+                    f'{H.save_dir}/fid/', verbose=False, use_dataparallel=False, num_workers=0, device=device
+                )
                 
-                precision, recall = compute_prec_recall(f'{H.data_root}/img', f'{H.save_dir}/fid/')
+                precision, recall = compute_prec_recall(
+                    data_train.fid_path if data_train.fid_path is not None else f'{H.data_root}/img', 
+                    f'{H.save_dir}/fid/'
+                )
                 if cur_fid < best_fid:
                     best_fid = cur_fid
                 

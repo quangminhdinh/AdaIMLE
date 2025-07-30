@@ -19,6 +19,11 @@ class TextCLIPCondDataset(Dataset):
     self.txt_list = data["raw_text"]
     self.txt_clip = data["text"]
     self.img_clip = data["img"] if "img" in data else None
+    if 'fid_path' in data:
+      self.fid_path = data['fid_path']
+      print("FID path:", self.fid_path)
+    else:
+      self.fid_path = None
 
     if H.subset_len != -1:
       self.trX = self.trX[:H.subset_len, ...]
@@ -29,26 +34,18 @@ class TextCLIPCondDataset(Dataset):
     self.latent = None
     
     if H.random_proj_sz > 0:
-      if(is_main_process()):
-        if H.normalize_random_proj:
-          path = f'{H.data_root}/proj{H.random_proj_sz}_norm.pt'
-        else:
-          path = f'{H.data_root}/proj{H.random_proj_sz}.pt'
-        if os.path.exists(path):
-          proj = torch.load(path, map_location='cpu', weights_only=True)
-        else:
-          proj = torch.randn(512, H.random_proj_sz, device="cpu", dtype=torch.half)
-          if H.normalize_random_proj:
-            proj = F.normalize(proj, p=2, dim=1)
-          torch.save(proj, path)
-        proj = proj.to(device)
+      if H.normalize_random_proj:
+        path = f'{H.data_root}/proj{H.random_proj_sz}_norm.pt'
       else:
-        proj = torch.empty(512, H.random_proj_sz, device=device)
-      
-      torch.distributed.barrier()
-      torch.distributed.broadcast(proj, src=0)
-      torch.distributed.barrier()
-      self.txt_clip = torch.mm(self.txt_clip, proj.cpu())
+        path = f'{H.data_root}/proj{H.random_proj_sz}.pt'
+      if os.path.exists(path):
+        proj = torch.load(path, map_location='cpu', weights_only=True)
+      else:
+        proj = torch.randn(512, H.random_proj_sz, device="cpu", dtype=torch.float32)
+        if H.normalize_random_proj:
+          proj = F.normalize(proj, p=2, dim=1)
+        torch.save(proj, path)      
+      self.txt_clip = torch.mm(self.txt_clip.to(torch.float32), proj.to(torch.float32).cpu())
       self.rand_proj = proj.cpu()
     else:
       self.rand_proj = None

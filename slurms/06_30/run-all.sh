@@ -5,7 +5,7 @@
 #SBATCH --nodes=1          # Number of nodes requested.
 #SBATCH --tasks-per-node=8
 #SBATCH --gres=gpu:a100:2 # 32G V100
-#SBATCH --output=/scratch/qmd/results/new_imle/flowers_all/proj_32_all/log_out.log
+#SBATCH --output=/scratch/qmd/results/new_imle/flowers_all/all/log_out.log
 ##SBATCH -e slurm.%N.%j.err    # STDERR
 
 # Below sets the email notification, swap to your email to receive notifications
@@ -48,7 +48,7 @@ source ~/py311/bin/activate
 # buffering when stdout is a file, or else when watching your output
 # script you’ll only get updated every several lines printed.
 #pip download -i https://test.pypi.org/simple/ dciknn-cuda==0.1.15
-export EXP_NAME=proj_32_all
+export EXP_NAME=all
 export save_dir="/scratch/qmd/results/new_imle/flowers_all/${EXP_NAME}"
 export load_point="latest"
 #!/bin/bash
@@ -58,7 +58,7 @@ exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print 
     --save_dir ${save_dir} \
     --data_root /scratch/qmd/datasets/flowers_all \
     --dataset flowers102-t \
-    --wandb_name proj_32_all \
+    --wandb_name all \
     --force_factor 0.008 \
     --imle_force_resample 2  \
     --lr 0.0002 \
@@ -66,19 +66,17 @@ exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print 
     --search_type 'lpips' \
     --n_batch 4 \
     --num_epochs 4000 \
-    --fid_freq 10 \
+    --fid_freq 1000000 \
     --imle_batch 32 \
     --compile True \
     --use_multi_res True \
-    --l2_clip_coef 0.5 \
-    --random_proj_sz 32 \
-    --normalize_random_proj True \
     --multi_res_scales '32,64,128' \
-    --dec_blocks '1x2,4m1,4x3,8m4,8x4,16m8,16x9,32m16,32x21,64m32,64x13,128m64,128x7,256m128'
-    # --restore_path ${save_dir}/train/${load_point}-model.th \
-    # --restore_ema_path ${save_dir}/train/${load_point}-model-ema.th \
-    # --restore_optimizer_path ${save_dir}/train/${load_point}-opt.th \
-    # --restore_scaler_path ${save_dir}/train/${load_point}-scaler.th \
-    # --restore_scheduler_path ${save_dir}/train/${load_point}-sched.th \
-    # --restore_log_path ${save_dir}/train/${load_point}-log.jsonl \
-    # --wandb_id lyvw6pfa
+    --epoch_per_save 10 \
+    --dec_blocks '1x2,4m1,4x3,8m4,8x4,16m8,16x9,32m16,32x21,64m32,64x13,128m64,128x7,256m128' \
+    --restore_path ${save_dir}/train/${load_point}-model.th \
+    --restore_ema_path ${save_dir}/train/${load_point}-model-ema.th \
+    --restore_optimizer_path ${save_dir}/train/${load_point}-opt.th \
+    --restore_scaler_path ${save_dir}/train/${load_point}-scaler.th \
+    --restore_scheduler_path ${save_dir}/train/${load_point}-sched.th \
+    --restore_log_path ${save_dir}/train/${load_point}-log.jsonl \
+    --wandb_id ukedszrr

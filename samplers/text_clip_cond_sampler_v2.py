@@ -33,15 +33,18 @@ class TextClipCondSamplerV2(Sampler):
             print(f"Adding CLIP loss with coefficient {self.H.clip_coef} and temperature {self.H.clip_temp}!")
         if self.H.use_clip_l2:
             print(f"Applying L2 loss to img clip features with coefficient {self.H.l2_clip_coef}!")
+            
+        # self.sample_texts = ["the petals are purple, the flower is completely open reveling the off red stamen.",
+        #                     "the flower is pink withe petals that are soft, smooth and petals that are separately arranged around sepals in many layers"]
         
-        self.sample_texts = ["the petals are purple, the flower is completely open reveling the off red stamen.",
-                             "the flower is pink withe petals that are soft, smooth and petals that are separately arranged around sepals in many layers"]
+        self.sample_texts = ["A young, attractive woman with an oval face, high cheekbones, and a pointy nose. She has bangs and straight hair, big lips adorned with bright lipstick, and wears heavy makeup. Her smile is warm and inviting.",
+                             "A man with black hair, a beard, and a mustache, wearing a necktie, has noticeable bags under his eyes."]
         self.num_rand_samp = H.num_rand_samp
         if(is_main_process()):
             text_input = clip.tokenize(self.sample_texts).to(self.device)
             txt_feats = clip_model.encode_text(text_input).cpu()
             if rand_proj is not None:
-                txt_feats = torch.mm(txt_feats, rand_proj)
+                txt_feats = torch.mm(txt_feats.to(torch.float32), rand_proj.to(torch.float32))
             if kmeans is not None:
                 labels = kmeans.predict(txt_feats)
                 txt_feats = kmeans.centroids[labels]

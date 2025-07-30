@@ -207,7 +207,7 @@ def generate_and_save_wtext(H, imle, sampler, all_text, n_samp, subdir='fid'):
             text_viz = all_text[torch.randint(all_text.shape[0], (current_batch_size,))]
             # latent_batch.normal_()  # Reinitialize latent_batch from normal distribution
             # Generate samples using the provided sampler
-            samp = sampler.sample(latent_batch, text_viz, imle, None)
+            samp = sampler.sample(latent_batch, text_viz, imle.module, None)
             # Save each sample with its corresponding global index
             for j in range(current_batch_size):
                 global_index = indices[i + j]

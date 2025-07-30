@@ -186,6 +186,7 @@ def add_imle_arguments(parser):
     parser.add_argument('--image_size', type=int, default=256)  # image size of dataset -- possible to downsample the dataset
     parser.add_argument('--num_images_to_generate', type=int, default=100)
     parser.add_argument('--mode', type=str, default='train')  # mode of running, train, eval, reconstruct, generate
+    parser.add_argument('--num_training_samples', type=int, default=1000)
     
     parser.add_argument('--use_adaptive', default=False, type=lambda x: bool(x))  # whether to use adaptive imle
 
@@ -206,6 +207,7 @@ def add_imle_arguments(parser):
     parser.add_argument('--search_type', type=str, default='lpips', choices=['lpips', 'l2', 'combined', 'vae']) # search type for nearest neighbour search
     parser.add_argument('--l2_search_downsample', type=float, default=0.125) # downsample factor for l2 search
 
+    parser.add_argument('--augment', default=False, type=lambda x: bool(x)) 
     parser.add_argument('--use_angular_resample', default=False, type=lambda x: bool(x))  # whether to use spatial noise
     parser.add_argument('--use_eps_ignore', default=False, type=lambda x: bool(x))  # whether to use spatial noise
     # parser.add_argument('--use_eps_ignore_advanced', default=False, type=lambda x: bool(strtobool(x)))  # whether to use spatial noise
