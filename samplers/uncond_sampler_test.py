@@ -60,8 +60,8 @@ class UncondSamplerTest(TextClipCondSamplerV2):
             # for samp_idx in tqdm(range(local_start, local_end), desc="IMLE:", disable=(not is_main_process())):
             all_distances, all_indices = self.gpu_index_flat.search(self.dataset_proj[local_start:local_end], 1)
             for samp_idx in range(local_start, local_end):
-                distance = torch.from_numpy(all_distances[samp_idx]).squeeze()  # (local_size,)
-                ind = torch.from_numpy(all_indices[samp_idx]).squeeze()
+                distance = torch.from_numpy(all_distances[samp_idx - local_start]).squeeze()  # (local_size,)
+                ind = torch.from_numpy(all_indices[samp_idx - local_start]).squeeze()
                 if distance < self.selected_dists_tmp[samp_idx]:
                     local_updated_dists[samp_idx - local_start] = distance
                     local_updated_latents[samp_idx - local_start] = self.pool_latents[ind]
