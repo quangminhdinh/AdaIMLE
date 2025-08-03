@@ -2,6 +2,7 @@ import os
 import time
 
 # from comet_ml import Experiment, ExistingExperiment
+import numpy as np # type: ignore
 import torch
 from torch.utils.data.distributed import DistributedSampler
 from cleanfid import fid
@@ -42,7 +43,10 @@ def print_seed(device):
 def training_step_imle(H, n, targets, latents, text, imle, ema_imle, optimizer, loss_fn, scaler, clip_feat=None):
     targets_permuted = targets.permute(0, 3, 1, 2)
     with autocast(device_type='cuda'):
-        px_z = imle(latents, text)
+        if H.cfg and np.random.rand() < H.p_cfg:
+            px_z = imle(latents, imle.text_null.repeat(text.shape[0], 1))
+        else:
+            px_z = imle(latents, text)
         loss = loss_fn(px_z, targets.permute(0, 3, 1, 2), text=(text if H.use_clip_loss else None),
                        img_clip=clip_feat)
         loss_measure = loss.clone()

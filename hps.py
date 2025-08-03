@@ -151,6 +151,10 @@ def add_imle_arguments(parser):
     parser.add_argument('--random_proj_sz', type=int, default=-1)
     parser.add_argument('--normalize_random_proj', default=False, type=lambda x: bool(x))
     parser.add_argument('--unconditional', default=False, type=lambda x: bool(x))
+    parser.add_argument('--cfg', default=False, type=lambda x: bool(x))
+    parser.add_argument('--text_null_learnable', default=False, type=lambda x: bool(x))
+    parser.add_argument('--p_cfg', type=float, default=0.1)
+    parser.add_argument('--w_cfg', type=float, default=4.0)
 
     parser.add_argument('--accumulation_steps', type=int, default=1)  # accumulation steps
     parser.add_argument('--num_comp_indices', type=int, default=2)  # dci number of components

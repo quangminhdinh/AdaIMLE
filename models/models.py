@@ -250,6 +250,13 @@ class Decoder2(nn.Module):
         #     self.m_gain = nn.Parameter(torch.ones(H.latent_dim))
         self.gain = nn.Parameter(torch.ones(1, H.image_channels, 1, 1))
         self.bias = nn.Parameter(torch.zeros(1, H.image_channels, 1, 1))
+    
+    def freeze_uncond(self):
+        # Freeze all parameters first
+        for param in self.parameters():
+            param.requires_grad = False
+        for param in self.mapping_network.parameters():
+            param.requires_grad = True
 
     def forward(self, latent_code, txt_embed, input_is_w=False):
         assert latent_code.shape[0] == txt_embed.shape[0]
@@ -276,6 +283,13 @@ class IMLE(nn.Module):
     def __init__(self, H):
         super().__init__()
         self.decoder = get_dec(H)
+        if H.cfg:
+            self.text_null = torch.zeros(self.decoder.txt_sz)
+            if H.text_null_learnable:
+                self.text_null = nn.Parameter(self.text_null)
+    
+    def freeze_uncond(self):
+        self.decoder.freeze_uncond()
 
     def forward(self, latents, txt_embed, input_is_w=False):
         return self.decoder.forward(latents, txt_embed, input_is_w)

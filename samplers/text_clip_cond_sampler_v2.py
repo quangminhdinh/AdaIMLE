@@ -86,6 +86,9 @@ class TextClipCondSamplerV2(Sampler):
                 latents = latents.to(self.device)
                 text = text.to(self.device)
                 px_z = gen(latents, text, None).permute(0, 2, 3, 1)
+                if H.cfg:
+                    px_u = gen(latents, gen.text_null.repeat(text.shape[0], 1), None).permute(0, 2, 3, 1)
+                    px_z = (1 + self.H.w_cfg) * px_z - self.H.w_cfg * px_u
                 xhat = (px_z + 1.0) * 127.5
                 xhat = xhat.detach().cpu().numpy()
                 xhat = np.minimum(np.maximum(0.0, xhat), 255.0).astype(np.uint8)
