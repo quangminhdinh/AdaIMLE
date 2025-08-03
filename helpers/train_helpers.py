@@ -144,7 +144,7 @@ def set_up_hyperparams(s=None):
     return H, logprint
 
 
-def restore_params(model, path, local_rank, mpi_size, map_ddp=True, map_cpu=False, strict=True):
+def restore_params(model, path, local_rank, mpi_size, map_ddp=True, map_cpu=False, strict=True, freeze=False):
     state_dict = torch.load(distributed_maybe_download(path, local_rank, mpi_size), map_location='cpu')
     if map_ddp:
         new_state_dict = {}
@@ -156,6 +156,9 @@ def restore_params(model, path, local_rank, mpi_size, map_ddp=True, map_cpu=Fals
                 new_state_dict[k] = state_dict[k]
         state_dict = new_state_dict
     model.load_state_dict(state_dict, strict=strict)
+    if freeze:
+        print("Freezing unconditional components...")
+        model.freeze_uncond()
 
 
 def restore_log(path, local_rank, mpi_size):
@@ -180,10 +183,12 @@ def load_imle(H, logprint):
     imle = IMLE(H)
     imle.to(device)
     
+    freeze = True if H.freeze_uncond else False
+    
     if H.restore_path:
         if(is_main_process()):
             logprint(f'Restoring imle from {H.restore_path}')
-        restore_params(imle, H.restore_path, map_cpu=True, local_rank=H.local_rank, mpi_size=H.mpi_size, strict=H.load_strict)
+        restore_params(imle, H.restore_path, map_cpu=True, local_rank=H.local_rank, mpi_size=H.mpi_size, strict=H.load_strict, freeze=freeze)
 
     ema_imle = IMLE(H)
     ema_imle = ema_imle.to(device)  # Move to the correct device.
@@ -191,7 +196,7 @@ def load_imle(H, logprint):
     if H.restore_ema_path:
         if(is_main_process()):
             logprint(f'Restoring ema imle from {H.restore_ema_path}')
-        restore_params(ema_imle, H.restore_ema_path, map_cpu=True, local_rank=H.local_rank, mpi_size=H.mpi_size, strict=H.load_strict)
+        restore_params(ema_imle, H.restore_ema_path, map_cpu=True, local_rank=H.local_rank, mpi_size=H.mpi_size, strict=H.load_strict, freeze=freeze)
     else:
         ema_imle.load_state_dict(imle.state_dict())
 

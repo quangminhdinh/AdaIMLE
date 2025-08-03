@@ -160,6 +160,22 @@ class Decoder(nn.Module):
                 self.txt_up = nn.ModuleList([nn.Linear(self.txt_sz, up_dim) for _ in range(len(blocks))])
             else:
                 self.txt_up = nn.Linear(self.txt_sz, up_dim)
+                
+    def freeze_uncond(self):
+        # Freeze all parameters first
+        for param in self.parameters():
+            param.requires_grad = False
+
+        # Unfreeze parameters of txt_up or txt_down if present
+        if hasattr(self, 'txt_up'):
+            for param in self.txt_up.parameters():
+                param.requires_grad = True
+        if hasattr(self, 'txt_down'):
+            for param in self.txt_down.parameters():
+                param.requires_grad = True
+        if hasattr(self, 'm_gain'):
+            for param in self.m_gain.parameters():
+                param.requires_grad = True
     
     def _merge(self, w, txt_embed, idx=None):
         if self.H.unconditional:

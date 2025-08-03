@@ -145,6 +145,7 @@ def add_imle_arguments(parser):
     parser.add_argument('--use_clip_l2', default=False, type=lambda x: bool(x))
     parser.add_argument('--l2_clip_coef', type=float, default=0.1)
     parser.add_argument('--merge_before_map', default=False, type=lambda x: bool(x))
+    parser.add_argument('--freeze_uncond', default=False, type=lambda x: bool(x))
     parser.add_argument('--num_rand_samp', type=int, default=5)  # dci number of components
     parser.add_argument('--n_clusters', type=int, default=-1)
     parser.add_argument('--random_proj_sz', type=int, default=-1)
