@@ -114,6 +114,26 @@ class DecBlock(nn.Module):
         x = self.adaIN(x, w)
         x = self.resnet(x)
         return x
+    
+
+class TextProjBlock(nn.Module):
+    
+    def __init__(self, H, inp_dim, out_dim, act_layer=None):
+        super().__init__()
+        self.H = H
+        act_layer = nn.ReLU if act_layer is None else act_layer
+        if H.num_text_act == 0:
+            self.net = nn.Linear(inp_dim, out_dim)
+        else:
+            nns = [nn.Linear(inp_dim, H.text_hidden_dim), act_layer()]
+            for _ in range(H.num_text_act - 1):
+                nns.append(nn.Linear(H.text_hidden_dim, H.text_hidden_dim))
+                nns.append(act_layer())
+            nns.append(nn.Linear(H.text_hidden_dim, out_dim))
+            self.net = nn.Sequential(*nns)
+    
+    def forward(self, x):
+        return self.net(x)
 
 
 class DecBlock2(DecBlock):
@@ -150,16 +170,28 @@ class Decoder(nn.Module):
             print("Initializing unconditional model!")
             return
         if H.merge_concat:
-            if H.rep_text_emb:
-                self.txt_down = nn.ModuleList([nn.Linear(self.txt_sz + H.latent_dim, H.latent_dim) for _ in range(len(blocks))])
+            if H.legacy:
+                if H.rep_text_emb:
+                    self.txt_down = nn.ModuleList([nn.Linear(self.txt_sz + H.latent_dim, H.latent_dim) for _ in range(len(blocks))])
+                else:
+                    self.txt_down = nn.Linear(self.txt_sz + H.latent_dim, H.latent_dim)
             else:
-                self.txt_down = nn.Linear(self.txt_sz + H.latent_dim, H.latent_dim)
+                if H.rep_text_emb:
+                    self.txt_down = nn.ModuleList([TextProjBlock(H, self.txt_sz + H.latent_dim, H.latent_dim) for _ in range(len(blocks))])
+                else:
+                    self.txt_down = TextProjBlock(H, self.txt_sz + H.latent_dim, H.latent_dim)
         else:
             up_dim = 2 * H.latent_dim if H.merge_film else H.latent_dim
-            if H.rep_text_emb:
-                self.txt_up = nn.ModuleList([nn.Linear(self.txt_sz, up_dim) for _ in range(len(blocks))])
+            if H.legacy:
+                if H.rep_text_emb:
+                    self.txt_up = nn.ModuleList([nn.Linear(self.txt_sz, up_dim) for _ in range(len(blocks))])
+                else:
+                    self.txt_up = nn.Linear(self.txt_sz, up_dim)
             else:
-                self.txt_up = nn.Linear(self.txt_sz, up_dim)
+                if H.rep_text_emb:
+                    self.txt_up = nn.ModuleList([TextProjBlock(H, self.txt_sz, up_dim) for _ in range(len(blocks))])
+                else:
+                    self.txt_up = TextProjBlock(H, self.txt_sz, up_dim)
                 
     def freeze_uncond(self):
         # Freeze all parameters first
@@ -283,14 +315,23 @@ class IMLE(nn.Module):
     def __init__(self, H):
         super().__init__()
         self.decoder = get_dec(H)
+        self.H = H
         if H.cfg:
-            self.text_null = torch.zeros(self.decoder.txt_sz)
             if H.text_null_learnable:
-                self.text_null = nn.Parameter(self.text_null)
+                self.text_null = nn.Parameter(torch.zeros(self.decoder.txt_sz))
+            else:
+                self.register_buffer("text_null", torch.zeros(self.decoder.txt_sz))
     
     def freeze_uncond(self):
         self.decoder.freeze_uncond()
 
-    def forward(self, latents, txt_embed, input_is_w=False):
-        return self.decoder.forward(latents, txt_embed, input_is_w)
+    def forward(self, latents, txt_embed, input_is_w=False, replace=False):
+        # if replace:
+        #     txt = self.text_null.repeat(txt_embed.shape[0], 1)
+        if self.H.cfg:
+            replace = int(replace)
+            txt = replace * self.text_null.repeat(txt_embed.shape[0], 1) + (1 - replace) * txt_embed
+        else:
+            txt = txt_embed
+        return self.decoder.forward(latents, txt, input_is_w)
 

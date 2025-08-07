@@ -40,6 +40,7 @@ class TextClipCondSamplerV2(Sampler):
         self.sample_texts = ["A young, attractive woman with an oval face, high cheekbones, and a pointy nose. She has bangs and straight hair, big lips adorned with bright lipstick, and wears heavy makeup. Her smile is warm and inviting.",
                              "A man with black hair, a beard, and a mustache, wearing a necktie, has noticeable bags under his eyes."]
         self.num_rand_samp = H.num_rand_samp
+        self.w_cfg = self.H.w_cfg
         if(is_main_process()):
             text_input = clip.tokenize(self.sample_texts).to(self.device)
             txt_feats = clip_model.encode_text(text_input).cpu()
@@ -79,6 +80,19 @@ class TextClipCondSamplerV2(Sampler):
             if self.H.use_clip_l2 and img_clip is not None:
                 loss = loss + self.H.l2_clip_coef * self.l2_loss(img_embed, img_clip).mean()
         return loss
+    
+    def cfg_grid_sample(self, func, fetch_ret=True):
+        self.w_cfg = self.H.w_cfg_max
+        rets = {}
+        while self.w_cfg >= self.H.w_cfg_min:
+            if fetch_ret:
+                res = func(self.w_cfg)
+                rets.update(res)
+            else:
+                func(self.w_cfg)
+            self.w_cfg -= self.H.cfg_grid_step
+        self.w_cfg = self.H.w_cfg
+        return rets
 
     def sample(self, latents, text, gen, snoise=None):
         with torch.no_grad():
@@ -86,9 +100,10 @@ class TextClipCondSamplerV2(Sampler):
                 latents = latents.to(self.device)
                 text = text.to(self.device)
                 px_z = gen(latents, text, None).permute(0, 2, 3, 1)
-                if H.cfg:
-                    px_u = gen(latents, gen.text_null.repeat(text.shape[0], 1), None).permute(0, 2, 3, 1)
-                    px_z = (1 + self.H.w_cfg) * px_z - self.H.w_cfg * px_u
+                if self.H.cfg:
+                    px_u = gen(latents, text, None, replace=True).permute(0, 2, 3, 1)
+                    # px_z = (1 + self.H.w_cfg) * px_z - self.H.w_cfg * px_u
+                    px_z = (1 - self.w_cfg) * px_z + self.w_cfg * px_u
                 xhat = (px_z + 1.0) * 127.5
                 xhat = xhat.detach().cpu().numpy()
                 xhat = np.minimum(np.maximum(0.0, xhat), 255.0).astype(np.uint8)

@@ -43,10 +43,7 @@ def print_seed(device):
 def training_step_imle(H, n, targets, latents, text, imle, ema_imle, optimizer, loss_fn, scaler, clip_feat=None):
     targets_permuted = targets.permute(0, 3, 1, 2)
     with autocast(device_type='cuda'):
-        if H.cfg and np.random.rand() < H.p_cfg:
-            px_z = imle(latents, imle.text_null.repeat(text.shape[0], 1))
-        else:
-            px_z = imle(latents, text)
+        px_z = imle(latents, text, replace=(H.cfg and np.random.rand() < H.p_cfg))
         loss = loss_fn(px_z, targets.permute(0, 3, 1, 2), text=(text if H.use_clip_loss else None),
                        img_clip=clip_feat)
         loss_measure = loss.clone()
@@ -133,7 +130,16 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
             with torch.no_grad():
                 imle.eval()
                 if H.use_text:
-                    img_cap_results = generate_for_NN_wtext(H, sampler, split_x_tensor, latents, data_train.txt_clip, 
+                    if H.cfg and H.cfg_grid_step > 0:
+                        img_cap_results = sampler.cfg_grid_sample(
+                            lambda w: generate_for_NN_wtext(
+                                H, sampler, split_x_tensor, latents, data_train.txt_clip, 
+                                data_train.txt_list, viz_batch_original.shape, imle,
+                                f'{H.save_dir}/NN-samples-w={w:.2f}', logprint, epoch
+                            )
+                        )
+                    else:
+                        img_cap_results = generate_for_NN_wtext(H, sampler, split_x_tensor, latents, data_train.txt_clip, 
                                 data_train.txt_list, viz_batch_original.shape, imle,
                                 f'{H.save_dir}/NN-samples', logprint, epoch)
                     wandb_metrics.update(img_cap_results)
@@ -222,7 +228,15 @@ def train_loop_imle(H, data_train, data_valid, preprocess_fn, imle, ema_imle, lo
                                                 latent_for_visualization,
                                                 viz_batch_original.shape, imle,
                                                 f'{H.save_dir}/samples', logprint, experiment))
-                            wandb_metrics.update(generate_visualization_list_text(H, sampler, H.latent_dim, imle, f'{H.save_dir}/same-text', logprint, iterate))
+                            if H.cfg and H.cfg_grid_step > 0:
+                                wandb_metrics.update(sampler.cfg_grid_sample(
+                                    lambda w: generate_visualization_list_text(
+                                        H, sampler, H.latent_dim, imle, 
+                                        f'{H.save_dir}/same-text-w={w:.2f}', logprint, iterate
+                                    )
+                                ))
+                            else:
+                                wandb_metrics.update(generate_visualization_list_text(H, sampler, H.latent_dim, imle, f'{H.save_dir}/same-text', logprint, iterate))
                         else:
                             generate_visualization(H, sampler, viz_batch_original,
                                                 sampler.selected_latents[0: H.num_images_visualize],
@@ -434,8 +448,8 @@ def main():
             sampler = Sampler(H, len(data_train), preprocess_fn)
         # generate_and_save(H, imle, sampler, 5000)
         num = 5
-        text = "the petals are orange, the flower is completely open reveling the off red stamen."
-        # text = "the flower is pink withe petals that are soft, smooth and petals that are separately arranged around sepals in many layers"
+        text = "A young, attractive woman with an oval face, high cheekbones, and a pointy nose. She has bangs and straight hair, big lips adorned with bright lipstick, and wears heavy makeup. Her smile is warm and inviting."
+        # text = "A man with black hair, a beard, and a mustache, wearing a necktie, has noticeable bags under his eyes."
         device = torch.device("cuda", torch.cuda.current_device())
         model, _ = clip.load('ViT-B/32', device)
         text_input = clip.tokenize(text).to(device)
@@ -446,7 +460,14 @@ def main():
             print("Generating samples")
 
         imle.eval()
-        generate_visualization_same_text(sampler, txt, num, H.latent_dim, imle, f'{H.save_dir}/same_text1.png', logprint)
+        if H.cfg and H.cfg_grid_step > 0:
+            sampler.cfg_grid_sample(
+                lambda w: generate_visualization_same_text(
+                    sampler, txt, num, H.latent_dim, imle, f'{H.save_dir}/same_text-w={w:.2f}.png', logprint
+                ), fetch_ret=False
+            )
+        else:
+            generate_visualization_same_text(sampler, txt, num, H.latent_dim, imle, f'{H.save_dir}/same_text.png', logprint)
         torch.distributed.barrier()
 
     elif H.mode == 'interpolate':
