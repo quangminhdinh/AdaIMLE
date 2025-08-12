@@ -4,7 +4,7 @@
 #SBATCH --mem=80G           # Memory in total
 #SBATCH --nodes=1          # Number of nodes requested.
 #SBATCH --tasks-per-node=8
-#SBATCH --gres=gpu:a100:1 # 32G V100
+#SBATCH --gres=gpu:a100:2 # 32G V100
 #SBATCH --output=/scratch/qmd/results/new_imle/flowers_all/unconditional_all/log_out.log
 ##SBATCH -e slurm.%N.%j.err    # STDERR
 

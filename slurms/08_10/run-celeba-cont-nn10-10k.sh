@@ -4,8 +4,8 @@
 #SBATCH --mem=80G           # Memory in total
 #SBATCH --nodes=1          # Number of nodes requested.
 #SBATCH --tasks-per-node=8
-#SBATCH --gres=gpu:a100:1 # 32G V100
-#SBATCH --output=/scratch/qmd/results/new_imle/celeba/celeba_cfg_p=0.5_10k/log_out.log
+#SBATCH --gres=gpu:a100:2 # 32G V100
+#SBATCH --output=/scratch/qmd/results/new_imle/celeba/celeba_from_uncond_nn10_10k/log_out.log
 ##SBATCH -e slurm.%N.%j.err    # STDERR
 
 # Below sets the email notification, swap to your email to receive notifications
@@ -48,7 +48,7 @@ source ~/py311/bin/activate
 # buffering when stdout is a file, or else when watching your output
 # script you’ll only get updated every several lines printed.
 #pip download -i https://test.pypi.org/simple/ dciknn-cuda==0.1.15
-export EXP_NAME=celeba_cfg_p=0.5_10k
+export EXP_NAME=celeba_from_uncond_nn10_10k
 export save_dir="/scratch/qmd/results/new_imle/celeba/${EXP_NAME}"
 export load_point="latest"
 #!/bin/bash
@@ -58,7 +58,7 @@ exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print 
     --save_dir ${save_dir} \
     --data_root /scratch/qmd/datasets/celeba \
     --dataset celeba \
-    --wandb_name celeba_cfg_p=0.5_10k \
+    --wandb_name celeba_from_uncond_nn10_10k \
     --force_factor 0.002 \
     --imle_force_resample 2  \
     --lr 0.0002 \
@@ -66,15 +66,15 @@ exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print 
     --search_type 'lpips' \
     --n_batch 4 \
     --num_epochs 4000 \
-    --imle_batch 32 \
-    --num_training_samples 10000 \
     --fid_freq 1000000 \
+    --num_training_samples 10000 \
     --epoch_per_save 10 \
+    --imle_batch 32 \
     --compile True \
-    --cfg True \
-    --p_cfg 0.5 \
     --use_multi_res True \
     --multi_res_scales '32,64,128' \
+    --load_strict 0 \
+    --num_text_act 10 \
     --dec_blocks '1x2,4m1,4x3,8m4,8x4,16m8,16x9,32m16,32x21,64m32,64x13,128m64,128x7,256m128' \
     --restore_path ${save_dir}/train/${load_point}-model.th \
     --restore_ema_path ${save_dir}/train/${load_point}-model-ema.th \
@@ -82,4 +82,4 @@ exec torchrun --nproc_per_node=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print 
     --restore_scaler_path ${save_dir}/train/${load_point}-scaler.th \
     --restore_scheduler_path ${save_dir}/train/${load_point}-sched.th \
     --restore_log_path ${save_dir}/train/${load_point}-log.jsonl \
-    --wandb_id rtrq7ql4
+    --wandb_id kc8bngt1
