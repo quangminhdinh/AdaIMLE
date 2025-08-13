@@ -3,6 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from .mapping_network import MappingNetowrk, AdaptiveInstanceNorm
+from .text_proj import TextProjBlock
 from helpers.imle_helpers import get_1x1
 from collections import defaultdict
 
@@ -114,26 +115,6 @@ class DecBlock(nn.Module):
         x = self.adaIN(x, w)
         x = self.resnet(x)
         return x
-    
-
-class TextProjBlock(nn.Module):
-    
-    def __init__(self, H, inp_dim, out_dim, act_layer=None):
-        super().__init__()
-        self.H = H
-        act_layer = nn.ReLU if act_layer is None else act_layer
-        if H.num_text_act == 0:
-            self.net = nn.Linear(inp_dim, out_dim)
-        else:
-            nns = [nn.Linear(inp_dim, H.text_hidden_dim), act_layer()]
-            for _ in range(H.num_text_act - 1):
-                nns.append(nn.Linear(H.text_hidden_dim, H.text_hidden_dim))
-                nns.append(act_layer())
-            nns.append(nn.Linear(H.text_hidden_dim, out_dim))
-            self.net = nn.Sequential(*nns)
-    
-    def forward(self, x):
-        return self.net(x)
 
 
 class DecBlock2(DecBlock):
