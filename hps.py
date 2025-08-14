@@ -121,6 +121,7 @@ def add_imle_arguments(parser):
     parser.add_argument('--wd', type=float, default=0.00)  # weight decay
     parser.add_argument('--num_epochs', type=int, default=10000)  # number of epochs
     parser.add_argument('--n_batch', type=int, default=4)  # batch size
+    parser.add_argument('--text_res_step', type=int, default=-1)
     parser.add_argument('--adam_beta1', type=float, default=0.9)
     parser.add_argument('--adam_beta2', type=float, default=0.9)
     parser.add_argument('--adam_eps', type=float, default=1e-8)
@@ -235,7 +236,7 @@ def add_imle_arguments(parser):
     parser.add_argument('--wandb_name', type=str, default='AdaptiveIMLE')  # used for wandb
     parser.add_argument('--wandb_project', type=str, default='AdaptiveIMLE')  # used for wandb
     parser.add_argument('--use_wandb', type=int, default=1)
-    parser.add_argument('--wandb_mode', type=str, default='offline')
+    parser.add_argument('--wandb_mode', type=str, default='online')
     parser.add_argument('--wandb_id', type=str, default=None)
     
     parser.add_argument('--hf_cache', type=str, default='/scratch/qmd/hf_cache')
